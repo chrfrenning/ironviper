@@ -1,9 +1,20 @@
 # ironviper
 
-image conversion at scale using imagemagick, docker containers, and azure
+Goal: provide very cost efficient cloud photo storage with some clever features
 
-this project is at very early stage, not much functioning yet.
-goal: provide very cost efficient cloud photo storage
+What? Image conversion at scale using imagemagick, docker containers, and cloud power (azure)
+
+Note! this project is at very early stage, not much functioning yet.
+
+
+## status
+
+Current status is that resource provisioning (deploy_azure.sh) is working, and manual uploads of files to 'file-store' container will result in thumbs and previews generated if running 'python converter.py' on some instance somewhere.
+
+## next steps
+
+* deployment and auto scaling of containers for conversions
+* web ui to display results
 
 ## how to get started
 
