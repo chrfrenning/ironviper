@@ -12,7 +12,9 @@ goal: provide very cost efficient cloud photo storage
 3. Issue the command below to build the infrastructure and start up the latest version of the app
 
 `
+
     curl -sL https://raw.githubusercontent.com/chrfrenning/ironviper/master/setup.sh | bash 
+    
 `
 
 4. This will take a few minutes, then you're ready to go!
