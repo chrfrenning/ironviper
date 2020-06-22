@@ -9,7 +9,7 @@ Note! this project is at very early stage, not much functioning yet.
 
 ## status
 
-Current status is that resource provisioning (deploy_azure.sh) is working, and manual uploads of files to 'file-store' container will result in thumbs and previews generated if running 'python converter.py' on some instance somewhere.
+Current status is that resource provisioning (deploy_azure.sh) is working, and manual uploads of files to 'file-store' container will result in thumbs and previews generated if running 'python converter.py' on some instance somewhere. #notforthefaintofheart
 
 ## next steps
 
