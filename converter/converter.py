@@ -8,13 +8,11 @@ from azure.storage.blob import BlobClient
 
 # Load config to know where to talk
 configuration = toml.load("../configuration.toml")
-cloud_instance_name = configuration["resource_group"]
-
-# TODO: get from keyvault
-account_key = "eHxQVP++/kxBQCMCs07sqaHVp2kpYJOUhU32Hu2/u10g/IciUKutRGUhNIA0A58PqoKTaliekZ7WKyKTB9t+2Q=="
+cloud_instance_name = configuration["instance_name"]
+account_key = configuration["account_key"] # TODO: Get from keyvault
 
 # Query the queue for new files arrived
-queue_service = QueueService(account_name=cloud_instance_name, account_key='eHxQVP++/kxBQCMCs07sqaHVp2kpYJOUhU32Hu2/u10g/IciUKutRGUhNIA0A58PqoKTaliekZ7WKyKTB9t+2Q==')
+queue_service = QueueService(account_name=cloud_instance_name, account_key=account_key)
 queue_service.decode_function = QueueMessageFormat.binary_base64decode
 
 # Handle each new message
@@ -24,7 +22,7 @@ for msg in messages:
     url = message["data"]["url"]
     print url
 
-    bsc = BlobServiceClient.from_connection_string("DefaultEndpointsProtocol=https;AccountName=ironviper00b6e128;AccountKey=eHxQVP++/kxBQCMCs07sqaHVp2kpYJOUhU32Hu2/u10g/IciUKutRGUhNIA0A58PqoKTaliekZ7WKyKTB9t+2Q==;EndpointSuffix=core.windows.net")
+    bsc = BlobServiceClient.from_connection_string("DefaultEndpointsProtocol=https;AccountName={};AccountKey={};EndpointSuffix=core.windows.net".format(cloud_instance_name, account_key))
     bc = bsc.get_blob_client("file-store", "DSCF8791.JPG")
     # print bc.get_blob_properties()
     

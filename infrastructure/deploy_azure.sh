@@ -18,6 +18,9 @@ rnd=$(cut -c1-6 /proc/sys/kernel/random/uuid)
 rgn=ironviper00$rnd
 location=centralus
 
+# TODO: Ensure we have tools we need, e.g. jq
+# sudo apt install jq
+
 # Ensure we have the right resource providers
 # We may need a mechanism to wait for them all to complete before proceeding
 # az provider register --namespace Microsoft.DocumentDB
@@ -30,10 +33,24 @@ echo Deploying ironviper resources
 az group create --location $location --name $rgn
 
 # Save resource group name for app
-echo "resource_group = \"$rgn\"" > ../configuration.toml
+echo "instance_name = \"$rgn\"" > ../configuration.toml
+echo "resource_group = \"$rgn\"" >> ../configuration.toml
 
 # Create keyvault for secrets
 az keyvault create -n $rgn -g $rgn --location $location
+
+# Create service principal
+az ad sp create-for-rbac -n "http://$rgn" --sdk-auth > ../serviceprincipal.json
+clientId = $(cat serviceprincipal.json | jq -r ".clientId")
+echo "client_id = \"$clientId\"" >> ../configuration.toml
+
+clientSecret = $(cat serviceprincipal.json | jq -r ".clientSecret")
+echo "client_secret = \"$clientSecret\"" >> ../configuration.toml
+
+tenantId = $(cat serviceprincipal.json | jq -r ".tenantId")
+echo "tenant_id = \"$clientSecret\"" >> ../configuration.toml
+
+az keyvault set-policy -n @rgn --spn $clientId --secret-permissions get list --key-permissions encrypt decrypt get list
 
 # Create storage account
 # This is used to host a static website with the altizator.js script
@@ -41,6 +58,7 @@ az storage account create -n $rgn -g $rgn --sku "Standard_LRS" --location $locat
 
 storageKey=$(az storage account keys list -n $rgn -g $rgn --query "[?keyName=='key1'].value" -o tsv)
 az keyvault secret set --vault-name $rgn --name "storageKey" --value "$storageKey"
+echo "account_key = \"$storageKey\"" >> ../configuration.toml
 
 az storage container create --account-name $rgn --name "file-store"
 az storage container create --account-name $rgn --name "pv-store"
