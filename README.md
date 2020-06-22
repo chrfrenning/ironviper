@@ -8,7 +8,7 @@ goal: provide very cost efficient cloud photo storage
 ## how to get started
 
 1. You need an Azure subscription.
-2. Fire up the (Azure Cloud Shell)[https://shell.azure.com/] using Bash.
+2. Fire up the [Azure Cloud Shell](https://shell.azure.com/) using Bash.
 3. Issue the command below to build the infrastructure and start up the latest version of the app
 
 `` 
