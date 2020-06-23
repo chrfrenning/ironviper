@@ -6,6 +6,7 @@ import time
 import base64
 import signal
 import random
+import subprocess
 from urlparse import urlparse
 from azure.storage.queue import QueueClient
 from azure.storage.blob import BlobServiceClient
@@ -18,6 +19,7 @@ from azure.storage.blob import BlobClient
 # Global variables (hell yeah)
 
 stopSignal = None
+debugMode = False
 
 
 
@@ -26,7 +28,24 @@ stopSignal = None
 # Thumbnail creation using imagemagick
 #
 
-def create_thumbnails_classic_sequence(filename):
+def create_thumbnails_classic(filename):
+    start = time.time()
+
+    os.system("convert {} -resize '1600x>' -quality 80 -interlace Plane -strip /tmp/1600.jpg".format(filename))
+    os.system("convert {} -resize '800>' -quality 80 -interlace Plane -strip /tmp/800.jpg".format(filename))
+    os.system("convert {} -resize '600>' -quality 80 -interlace Plane -strip /tmp/600.jpg".format(filename))
+    os.system("convert {} -resize '400>' -quality 80 -interlace Plane -strip /tmp/400.jpg".format(filename))
+    os.system("convert {} -resize '200>' -quality 80 -interlace Plane -strip /tmp/200.jpg".format(filename))
+    os.system("convert {} -thumbnail '100x100' /tmp/100.jpg".format(filename))
+
+    print "create_thumbnails_classic completed in {} seconds".format(time.time() - start)
+
+    thumbs =  [ "/tmp/1600.jpg", "/tmp/800.jpg", "/tmp/600.jpg", "/tmp/200.jpg", "/tmp/100.jpg" ]
+    return thumbs
+    
+    
+    
+def create_thumbnails_classic_optimized(filename):
     start = time.time()
 
     os.system("convert {} -resize '1600x>' -quality 80 -interlace Plane -strip /tmp/1600.jpg".format(filename))
@@ -36,31 +55,14 @@ def create_thumbnails_classic_sequence(filename):
     os.system("convert /tmp/800.jpg -resize '200>' -quality 80 -interlace Plane -strip /tmp/200.jpg".format(filename))
     os.system("convert /tmp/800.jpg -thumbnail '100x100' /tmp/100.jpg".format(filename))
 
-    print "create_thumbnails_classic_sequence completed in {} seconds".format(time.time() - start)
-
-    thumbs =  [ "/tmp/1600.jpg", "/tmp/800.jpg", "/tmp/600.jpg", "/tmp/200.jpg", "/tmp/100.jpg" ]
-    return thumbs
-    
-    
-    
-def create_thumbnails_classic_sequence(filename):
-    start = time.time()
-
-    os.system("convert {} -resize '1600x>' -quality 80 -interlace Plane -strip /tmp/1600.jpg".format(filename))
-    os.system("convert /tmp/1600.jpg -resize '800>' -quality 80 -interlace Plane -strip /tmp/800.jpg".format(filename))
-    os.system("convert /tmp/1600.jpg -resize '600>' -quality 80 -interlace Plane -strip /tmp/600.jpg".format(filename))
-    os.system("convert /tmp/800.jpg -resize '400>' -quality 80 -interlace Plane -strip /tmp/400.jpg".format(filename))
-    os.system("convert /tmp/800.jpg -resize '200>' -quality 80 -interlace Plane -strip /tmp/200.jpg".format(filename))
-    os.system("convert /tmp/800.jpg -thumbnail '100x100' /tmp/100.jpg".format(filename))
-
-    print "create_thumbnails_classic_sequence completed in {} seconds".format(time.time() - start)
+    print "create_thumbnails_classic_optimized completed in {} seconds".format(time.time() - start)
 
     thumbs =  [ "/tmp/1600.jpg", "/tmp/800.jpg", "/tmp/600.jpg", "/tmp/200.jpg", "/tmp/100.jpg" ]
     return thumbs
 
 
 
-def create_thumbnails_mpr_full(filename):
+def create_thumbnails_mpr(filename):
     start = time.time()
 
     os.system("convert {} -write mpr:main +delete" \
@@ -70,7 +72,31 @@ def create_thumbnails_mpr_full(filename):
         " mpr:main -resize \"200x>\" -quality 80 -interlace Plane -strip -write /tmp/200.jpg +delete" \
         " mpr:main -thumbnail \"100x100\" -write /tmp/100.jpg null:".format(filename))
     
-    print "create_thumbnails_mpr_full completed in {} seconds".format(time.time() - start)
+    print "create_thumbnails_mpr completed in {} seconds".format(time.time() - start)
+    
+    thumbs =  [ "/tmp/1600.jpg", "/tmp/800.jpg", "/tmp/600.jpg", "/tmp/200.jpg", "/tmp/100.jpg" ]
+    return thumbs
+
+
+def create_thumbnails_mpr_optimized(filename):
+    start = time.time()
+    
+    # var = "convert /tmp/b6b262a33e594b99b2375f6b1b96d72d.jpg -resize '1600x>' -quality 80 -interlace Plane 
+    # -strip -write mpr:main +delete mpr:main -write ./1600.jpg +delete mpr:main -resize '800x>' 
+    # -quality 80 -interlace Plane -strip ./800.jpg"
+    
+    # convert /tmp/85e22e088eba4bdc889338d2eeee261e.jpg -resize '1600x>' -quality 80 -interlace Plane -strip -write mpr:main +delete 
+    # mpr:main -write 1600.jpg +delete 
+    # mpr:main -thumbnail '100x100' 100.jpg
+
+    os.system("convert {} -resize '1600x>' -quality 80 -interlace Plane -strip -write mpr:main +delete" \
+        " mpr:main -write /tmp/1600.jpg +delete" \
+        " mpr:main -resize '800x>' -quality 80 -interlace Plane -strip -write /tmp/800.jpg +delete" \
+        " mpr:main -resize '600x>' -quality 80 -interlace Plane -strip -write /tmp/600.jpg +delete" \
+        " mpr:main -resize '200x>' -quality 80 -interlace Plane -strip -write /tmp/200.jpg +delete" \
+        " mpr:main -thumbnail '100x100' /tmp/100.jpg".format(filename))
+
+    print "create_thumbnails_mpr_optimized completed in {} seconds".format(time.time() - start)
     
     thumbs =  [ "/tmp/1600.jpg", "/tmp/800.jpg", "/tmp/600.jpg", "/tmp/200.jpg", "/tmp/100.jpg" ]
     return thumbs
@@ -80,8 +106,13 @@ def create_thumbnails_mpr_full(filename):
 def create_thumbnails(filename):
     print "Creating thumbnails"
 
-    thumbs = create_thumbnails_classic_sequence(filename)
-    thumbs = create_thumbnails_mpr_full(filename)
+    if debugMode == True:
+        thumbs = create_thumbnails_classic(filename)
+        thumbs = create_thumbnails_classic_optimized(filename)
+        thumbs = create_thumbnails_mpr(filename)
+        thumbs = create_thumbnails_mpr_optimized(filename)
+    else:
+        thumbs = create_thumbnails_mpr_optimized(filename) # assuming this is the fastest way until tests run
 
     return thumbs
 
@@ -152,17 +183,42 @@ def download_blob(url, account_key):
 # Image handling
 #
  
-def handle_image(temporary_file_name, name, instance_name, account_key):
+def generic_handle_image(temporary_file_name, name, instance_name, account_key):
     thumbs = None
 
     try:
         thumbs = create_thumbnails(temporary_file_name)
         print "Thumbnails created: {}".format(thumbs)
         upload_thumbnails(thumbs, name, instance_name, account_key)
+
     finally:
-        if thumbs is not None:
+        if not debugMode and thumbs is not None:
             for t in thumbs:
                 os.remove(t)
+
+
+
+def identify_image(file_name):
+    output = subprocess.check_output("identify {}".format(file_name), shell=False)
+    print("Identify results: ", output)
+    return output
+
+
+
+def handle_jpeg_image(temporary_file_name, name, instance_name, account_key):
+    thumbs = None
+
+    try:
+        # validate the file type
+        # img_type = identify_image(temporary_file_name)
+
+        # handle image
+        generic_handle_image(temporary_file_name, name, instance_name, account_key)
+
+    except Exception as ex:
+        print("handle_image exception: ", ex.message)
+        # todo: if we fail here, consider tainted and ask infra to recycle container?
+        # can do by setting global stopSignal = True or using exit(), unsure of best approach
 
 
 
@@ -187,25 +243,28 @@ def handle_message(json_message, instance_name, account_key):
 
     # parse url
     fn = urlparse(url).path
-    extension = fn[fn.rfind('.')+1:].lower()
+    extension = fn[fn.rfind('.')+1:].lower() # convert to lowercase, see switch below
     name = fn[fn.rfind('/')+1:fn.rfind('.')]
 
     print "Pathinfo: " + fn + ", " + name + ", " + extension
     # todo: manage rest of process based on extension
+    # todo: use identify -verbose <fn> to get info on file and validate
+    # todo: extract exif and xmp metadata
 
-    #tempFileName = None
+    tempFileName = None
 
     try:
         if extension == "jpg":
             tempFileName = download_blob(url, account_key)
-            handle_image(tempFileName, name, instance_name, account_key)
+            handle_jpeg_image(tempFileName, name, instance_name, account_key)
         else:
             print "Don't know how to handle this file type"
+            # TODO: discard file by marking in an unknown table?
     except Exception as ex:
         print "Error handling blob: " + ex.message
-    #finally:
-    #    if tempFileName is not None:
-    #        os.remove(tempFileName)
+    finally:
+        if not debugMode and tempFileName is not None:
+            os.remove(tempFileName)
 
 
 
@@ -223,11 +282,19 @@ def dequeue_messages(config_instance_name, config_account_key):
         try:
             start = time.time()
             message = json.loads(base64.b64decode(msg.content))
+            # todo: bring message along so that we can update it to keep it reserved until we're done
+            # all thumbnail resizing is making us pass 30 seconds and we loose the msg
             handle_message(message, config_instance_name, config_account_key)
         
-            queue_service.delete_message(msg)
+            if not debugMode:
+                queue_service.delete_message(msg)
+            else:
+                print "Debug mode, not removing message from queue."
 
             print "Message handled in {} seconds.".format(time.time()-start)
+
+            if (stopSignal is not None) and (stopSignal == True):
+                return
 
         except Exception as ex:
             print "Error handling message ({})".format(msg.content)
@@ -281,6 +348,12 @@ def receiveSigTermSignal(signalNumber, frame):
  
 def main():
     random.seed()
+
+    # Check if we're in development mode
+    if os.environ.get("DEBUG", "0") == "1":
+        global debugMode
+        debugMode = True
+        print("Running in Debug mode")
 
     # Shut me down with sigterm
     print("New file handling worker started, pid is ", os.getpid(), " send sigterm with 'kill -{} <pid>' or CTRL-C to stop me gracefully.".format(signal.SIGTERM))
