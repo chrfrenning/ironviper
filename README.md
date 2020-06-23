@@ -29,3 +29,16 @@ Current status is that resource provisioning (deploy_azure.sh) is working, and m
 ```
 
 4. This will take a few minutes, then you're ready to go!
+5. Nothing will work, cause we're not done, but you can play with running converter.py and uploading files manually
+
+### debug mode
+
+Set environment variable DEBUG=1 for additional information, tests, and diagnostics
+
+
+### issues
+
+I'll use github issues soon to track things that are not working, for now we have this list
+
+1. Digital camera images are not auto-rotated
+2. Tons of stuff is missing
