@@ -4,26 +4,94 @@ import os
 import uuid
 import time
 import base64
+import signal
+import random
 from urlparse import urlparse
 from azure.storage.queue import QueueClient
 from azure.storage.blob import BlobServiceClient
 from azure.storage.blob import BlobClient
 
 
-def create_thumbnails(filename):
-    print "Creating thumbnails"
 
+# #####################################################################
+#
+# Global variables (hell yeah)
+
+stopSignal = None
+
+
+
+# #####################################################################
+#
+# Thumbnail creation using imagemagick
+#
+
+def create_thumbnails_classic_sequence(filename):
     start = time.time()
+
+    os.system("convert {} -resize '1600x>' -quality 80 -interlace Plane -strip /tmp/1600.jpg".format(filename))
+    os.system("convert /tmp/1600.jpg -resize '800>' -quality 80 -interlace Plane -strip /tmp/800.jpg".format(filename))
+    os.system("convert /tmp/1600.jpg -resize '600>' -quality 80 -interlace Plane -strip /tmp/600.jpg".format(filename))
+    os.system("convert /tmp/800.jpg -resize '400>' -quality 80 -interlace Plane -strip /tmp/400.jpg".format(filename))
+    os.system("convert /tmp/800.jpg -resize '200>' -quality 80 -interlace Plane -strip /tmp/200.jpg".format(filename))
+    os.system("convert /tmp/800.jpg -thumbnail '100x100' /tmp/100.jpg".format(filename))
+
+    print "create_thumbnails_classic_sequence completed in {} seconds".format(time.time() - start)
+
+    thumbs =  [ "/tmp/1600.jpg", "/tmp/800.jpg", "/tmp/600.jpg", "/tmp/200.jpg", "/tmp/100.jpg" ]
+    return thumbs
+    
+    
+    
+def create_thumbnails_classic_sequence(filename):
+    start = time.time()
+
+    os.system("convert {} -resize '1600x>' -quality 80 -interlace Plane -strip /tmp/1600.jpg".format(filename))
+    os.system("convert /tmp/1600.jpg -resize '800>' -quality 80 -interlace Plane -strip /tmp/800.jpg".format(filename))
+    os.system("convert /tmp/1600.jpg -resize '600>' -quality 80 -interlace Plane -strip /tmp/600.jpg".format(filename))
+    os.system("convert /tmp/800.jpg -resize '400>' -quality 80 -interlace Plane -strip /tmp/400.jpg".format(filename))
+    os.system("convert /tmp/800.jpg -resize '200>' -quality 80 -interlace Plane -strip /tmp/200.jpg".format(filename))
+    os.system("convert /tmp/800.jpg -thumbnail '100x100' /tmp/100.jpg".format(filename))
+
+    print "create_thumbnails_classic_sequence completed in {} seconds".format(time.time() - start)
+
+    thumbs =  [ "/tmp/1600.jpg", "/tmp/800.jpg", "/tmp/600.jpg", "/tmp/200.jpg", "/tmp/100.jpg" ]
+    return thumbs
+
+
+
+def create_thumbnails_mpr_full(filename):
+    start = time.time()
+
     os.system("convert {} -write mpr:main +delete" \
         " mpr:main -resize \"1600x>\" -quality 80 -interlace Plane -strip -write /tmp/1600.jpg +delete" \
         " mpr:main -resize \"800x>\" -quality 80 -interlace Plane -strip -write /tmp/800.jpg +delete" \
+        " mpr:main -resize \"600>\" -quality 80 -interlace Plane -strip -write /tmp/600.jpg +delete" \
         " mpr:main -resize \"200x>\" -quality 80 -interlace Plane -strip -write /tmp/200.jpg +delete" \
         " mpr:main -thumbnail \"100x100\" -write /tmp/100.jpg null:".format(filename))
-    print "Conversion completed in {} seconds".format(time.time() - start)
-    return [ "/tmp/1600.jpg", "/tmp/800.jpg", "/tmp/200.jpg", "/tmp/100.jpg" ]
+    
+    print "create_thumbnails_mpr_full completed in {} seconds".format(time.time() - start)
+    
+    thumbs =  [ "/tmp/1600.jpg", "/tmp/800.jpg", "/tmp/600.jpg", "/tmp/200.jpg", "/tmp/100.jpg" ]
+    return thumbs
 
 
 
+def create_thumbnails(filename):
+    print "Creating thumbnails"
+
+    thumbs = create_thumbnails_classic_sequence(filename)
+    thumbs = create_thumbnails_mpr_full(filename)
+
+    return thumbs
+
+
+
+# #####################################################################
+#
+# Thumbnail upload to the pv-store container
+#
+ 
 def upload_blob(filename, url, account_key):
     bc = BlobClient.from_blob_url(url, account_key)
 
@@ -53,20 +121,10 @@ def upload_thumbnails(thumbs, name, instance_name, account_key):
             print "Failed to upload " + t + ": " + ex.message
 
 
-
-def handle_image(temporary_file_name, name, instance_name, account_key):
-    thumbs = None
-
-    try:
-        thumbs = create_thumbnails(temporary_file_name)
-        print "Thumbnails created: {}".format(thumbs)
-        upload_thumbnails(thumbs, name, instance_name, account_key)
-    finally:
-        if thumbs is not None:
-            for t in thumbs:
-                os.remove(t)
-
-
+# #####################################################################
+#
+# Blob download management
+#
 
 def download_blob(url, account_key):
     bc = BlobClient.from_blob_url(url, account_key)
@@ -88,6 +146,41 @@ def download_blob(url, account_key):
     return tempFileName
 
 
+
+# #####################################################################
+#
+# Image handling
+#
+ 
+def handle_image(temporary_file_name, name, instance_name, account_key):
+    thumbs = None
+
+    try:
+        thumbs = create_thumbnails(temporary_file_name)
+        print "Thumbnails created: {}".format(thumbs)
+        upload_thumbnails(thumbs, name, instance_name, account_key)
+    finally:
+        if thumbs is not None:
+            for t in thumbs:
+                os.remove(t)
+
+
+
+# #####################################################################
+#
+# Message handling
+# This is effectively our main() function, picking up messages
+# of new files ingested into the store. Based on extension
+# it will delegate to the correct handling proc, currently
+# only handling JPG files, but this will expand to
+# more file formats as the project moves on
+#
+# See Readme and docs on https://github.com/chrfrenning/ironviper
+# for full understanding of the system architecture
+# and what is handled in different workers (currently only one
+# worker in action, will expand in future)
+#
+ 
 def handle_message(json_message, instance_name, account_key):
     url = json_message["data"]["url"]
     print "Starting file processing of " + url
@@ -146,6 +239,16 @@ def dequeue_messages(config_instance_name, config_account_key):
 
 
 
+# #####################################################################
+#
+# Configuration management
+#
+# Configuration is for now in a toml file created by the
+# setup.sh script that deployes the application.
+# TODO: Must be switched to environment variables and central
+# app configuration as this worker is moved into a container.
+#
+ 
 def load_configuration():
     # Load config to know where to talk
     configuration = toml.load("../configuration.toml")
@@ -158,7 +261,34 @@ def load_configuration():
 
 
 
+# #####################################################################
+#
+# SIGTERM handling for graceful shutdown of pods
+#
+ 
+def receiveSigTermSignal(signalNumber, frame):
+    print('Received stop signal {}, completing current job then stopping. '.format(signalNumber))
+    global stopSignal
+    stopSignal = True
+    return
+    
+
+
+# #####################################################################
+#
+# Wire up the magic!
+#
+ 
 def main():
+    random.seed()
+
+    # Shut me down with sigterm
+    print("New file handling worker started, pid is ", os.getpid(), " send sigterm with 'kill -{} <pid>' or CTRL-C to stop me gracefully.".format(signal.SIGTERM))
+    signal.signal(signal.SIGTERM, receiveSigTermSignal)
+    signal.signal(signal.SIGINT, receiveSigTermSignal)
+
+    # Load configuration, we need instance name to find our storage account
+    # where the queues and containers are
     cloud_instance_name, account_key = load_configuration()
 
     # Query the queue for new files arrived
@@ -166,6 +296,14 @@ def main():
         while True:
             print "Polling queue..."
             dequeue_messages(cloud_instance_name, account_key)
+
+            if (stopSignal is not None) and (stopSignal == True):
+                print("Stop signal received, aborting polling and checking out.")
+                return
+
+            # Wait a random time before checking again
+            time.sleep( random.randrange(1,3) )
+
     except Exception as ex:
         print "An error occurred during message management. " + ex.message
 
