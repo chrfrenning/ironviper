@@ -41,16 +41,16 @@ az keyvault create -n $rgn -g $rgn --location $location
 
 # Create service principal
 az ad sp create-for-rbac -n "http://$rgn" --sdk-auth > ../serviceprincipal.json
-clientId = $(cat serviceprincipal.json | jq -r ".clientId")
+clientId = $(cat ../serviceprincipal.json | jq -r ".clientId")
 echo "client_id = \"$clientId\"" >> ../configuration.toml
 
-clientSecret = $(cat serviceprincipal.json | jq -r ".clientSecret")
+clientSecret = $(cat ../serviceprincipal.json | jq -r ".clientSecret")
 echo "client_secret = \"$clientSecret\"" >> ../configuration.toml
 
-tenantId = $(cat serviceprincipal.json | jq -r ".tenantId")
-echo "tenant_id = \"$clientSecret\"" >> ../configuration.toml
+tenantId = $(cat ../serviceprincipal.json | jq -r ".tenantId")
+echo "tenant_id = \"$tenantId\"" >> ../configuration.toml
 
-az keyvault set-policy -n @rgn --spn $clientId --secret-permissions get list --key-permissions encrypt decrypt get list
+az keyvault set-policy -n $rgn --spn $clientId --secret-permissions get list --key-permissions encrypt decrypt get list
 
 # Create storage account
 # This is used to host a static website with the altizator.js script
