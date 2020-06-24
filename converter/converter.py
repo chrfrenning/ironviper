@@ -1,16 +1,22 @@
+import sys
 import json
 import toml
 import os
 import uuid
 import time
+import datetime
 import base64
 import signal
 import random
 import subprocess
+import hashlib
+import shortuuid
 from urlparse import urlparse
 from azure.storage.queue import QueueClient
 from azure.storage.blob import BlobServiceClient
 from azure.storage.blob import BlobClient
+from azure.cosmosdb.table.tableservice import TableService
+from azure.cosmosdb.table.models import Entity
 
 
 
@@ -107,9 +113,9 @@ def create_thumbnails(filename):
     print "Creating thumbnails"
 
     if debugMode == True:
-        thumbs = create_thumbnails_classic(filename)
-        thumbs = create_thumbnails_classic_optimized(filename)
-        thumbs = create_thumbnails_mpr(filename)
+        #thumbs = create_thumbnails_classic(filename)
+        #thumbs = create_thumbnails_classic_optimized(filename)
+        #thumbs = create_thumbnails_mpr(filename)
         thumbs = create_thumbnails_mpr_optimized(filename)
     else:
         thumbs = create_thumbnails_mpr_optimized(filename) # assuming this is the fastest way until tests run
@@ -142,14 +148,20 @@ def upload_blob(filename, url, account_key):
 
 
 def upload_thumbnails(thumbs, name, instance_name, account_key):
+    th_url_list = []
+
     for t in thumbs:
         try:
             qualifier = t[t.rfind('/')+1:]
             url = "https://{}.blob.core.windows.net/pv-store/{}_{}".format(instance_name, name, qualifier)
             print "Uploading: " + name + t + " to " + url
             upload_blob(t, url, account_key)
+            th_url_list.append(url)
         except Exception as ex:
             print "Failed to upload " + t + ": " + ex.message
+
+    return th_url_list
+
 
 
 # #####################################################################
@@ -180,16 +192,146 @@ def download_blob(url, account_key):
 
 # #####################################################################
 #
+# Record handling
+#
+
+def create_file_record(url, name, exifString, xmpString, url_list, md5, sha256, instance_name, account_key):
+    start = time.time()
+
+    utcnow = datetime.datetime.utcnow().isoformat()
+
+    # Each ingested (and successfully processed) file has a unique record containing
+    # information, list of previews, 
+    file_record = {
+        'PartitionKey': '',                 # using tree structure for partition key a good idea? #possiblybadidea #possiblygoodidea
+        'RowKey': name,                     # using unique file name for key a good idea? #badidea #mustbeuniqueinpartition
+        'uid': uuid.uuid4().hex,            # globally uniqueId
+        'sid': shortuuid.uuid(),            # system shortId
+        'it': utcnow,                       # ingestion_time
+        'pvs' : json.dumps(url_list),       # json list of preview urls
+        'md5' : md5,                        # md5 checksum of total file binary data at ingestion time
+        'sha256' : sha256,                  # sha256 checksum of total file binary data at ingestion time
+        'exif' : exifString,                # exif dumped as json by imagemagick
+        'xmp' : xmpString                   # if exif identified APP1 data, xmp dump in xml by imagemagick
+    }
+
+    table_service = TableService(account_name=instance_name, account_key=account_key)
+    table_service.insert_or_replace_entity('files', file_record)
+
+    print "file_record inserted in {} sec".format(time.time()-start)
+
+
+
+# #####################################################################
+#
 # Image handling
 #
- 
-def generic_handle_image(temporary_file_name, name, instance_name, account_key):
+
+class FileTypeValidationException(Exception):
+    pass
+
+
+
+def identify_image(file_name):
+    try:
+        start = time.time()
+        cmd = "identify -ping -format \"%m\" {}".format(file_name)
+        output = subprocess.check_output(cmd, shell=True)
+        print "File {} identified as: ".format(file_name), output
+        print "identify_image completed in ", time.time()-start
+        return output
+    except CalledProcessError as ex:
+        print "Error identifying image: ", ex.message
+        return None
+
+
+def extract_exif(file_name):
+    try:
+        start = time.time()
+        cmd = "convert -ping {} json:".format(file_name)
+        output = subprocess.check_output(cmd, shell=True)
+        print "extract_exif completed in ", time.time()-start
+        return output
+    except CalledProcessError as ex:
+        print "Error extracting exif information from: ", ex.message
+        return None
+
+
+
+def extract_xmp(file_name):
+    try:
+        start = time.time()
+        cmd = "convert -ping {} XMP:-".format(file_name)
+        output = subprocess.check_output(cmd, shell=True)
+        print "extract_xmp completed in ", time.time()-start
+        return output
+    except CalledProcessError as ex:
+        print "Error extracting xmp data from: ", ex.message
+        return None
+
+
+
+def create_file_checksums(file_name):
+    BUFSIZE = 65536
+
+    start = time.time()
+
+    md5 = hashlib.md5()
+    sha256 = hashlib.sha256()
+
+    with open(file_name, 'rb') as f:
+        while True:
+            data = f.read(BUFSIZE)
+            if not data:
+                break
+            md5.update(data)
+            sha256.update(data)
+
+    print "checksums: md5(", md5.hexdigest(), "), sha256(", sha256.hexdigest(), ")"
+    print "create_file_checksums completed in {} seconds".format(time.time()-start)
+    return md5.hexdigest(), sha256.hexdigest()
+
+
+
+def _handle_image_generic(url, temporary_file_name, name, instance_name, account_key):
     thumbs = None
 
     try:
+        # extract metadata
+
+        exif = None
+        exifString = extract_exif(temporary_file_name)
+        exif = json.loads(exifString)
+        
+        # file haz xmp metadata?
+        
+        xmp = None
+        if "profiles" in exif and "xmp" in exif["profiles"]:
+            print "Xmp identified, extracting from file ", temporary_file_name
+            xmp = extract_xmp(temporary_file_name)
+        else:
+            print "Exif did not indicate app1/xmp data in file ", temporary_file_name
+
+        # file haz iptc?
+
+        if "profiles" in exif and "iptc" in exif["profiles"]:
+            print "File has iptc metadata, fyi only, not extracting in file ", temporary_file_name
+
+        # render previews
+
         thumbs = create_thumbnails(temporary_file_name)
         print "Thumbnails created: {}".format(thumbs)
-        upload_thumbnails(thumbs, name, instance_name, account_key)
+        url_list = upload_thumbnails(thumbs, name, instance_name, account_key)
+
+        # calculate checksums
+
+        print "Calculating checksums of original file"
+        md5, sha256 = create_file_checksums(temporary_file_name)
+
+        # done the work, create the file record
+
+        print "Creating master file record"
+        create_file_record(url, name, exifString, xmp, url_list, md5, sha256, instance_name, account_key)
 
     finally:
         if not debugMode and thumbs is not None:
@@ -198,25 +340,20 @@ def generic_handle_image(temporary_file_name, name, instance_name, account_key):
 
 
 
-def identify_image(file_name):
-    output = subprocess.check_output("identify {}".format(file_name), shell=False)
-    print("Identify results: ", output)
-    return output
-
-
-
-def handle_jpeg_image(temporary_file_name, name, instance_name, account_key):
+def handle_jpeg_image(url, temporary_file_name, name, instance_name, account_key):
     thumbs = None
 
     try:
         # validate the file type
-        # img_type = identify_image(temporary_file_name)
+        img_type = identify_image(temporary_file_name)
+        if not img_type == "JPEG":
+            raise FileTypeValidationException("{} ext .jpg is not identified as JPEG.".format(temporary_file_name))
 
         # handle image
-        generic_handle_image(temporary_file_name, name, instance_name, account_key)
+        _handle_image_generic(url, temporary_file_name, name, instance_name, account_key)
 
     except Exception as ex:
-        print("handle_image exception: ", ex.message)
+        print "handle_image exception: ", ex.message
         # todo: if we fail here, consider tainted and ask infra to recycle container?
         # can do by setting global stopSignal = True or using exit(), unsure of best approach
 
@@ -256,10 +393,13 @@ def handle_message(json_message, instance_name, account_key):
     try:
         if extension == "jpg":
             tempFileName = download_blob(url, account_key)
-            handle_jpeg_image(tempFileName, name, instance_name, account_key)
+            handle_jpeg_image(url, tempFileName, name, instance_name, account_key)
         else:
             print "Don't know how to handle this file type"
             # TODO: discard file by marking in an unknown table?
+    except FileTypeValidationException as ftvex:
+        # TODO: Mark file as invalid in table, alt treat as generic file type
+        pass
     except Exception as ex:
         print "Error handling blob: " + ex.message
     finally:
@@ -356,7 +496,7 @@ def main():
         print("Running in Debug mode")
 
     # Shut me down with sigterm
-    print("New file handling worker started, pid is ", os.getpid(), " send sigterm with 'kill -{} <pid>' or CTRL-C to stop me gracefully.".format(signal.SIGTERM))
+    print "New file handling worker started, pid is ", os.getpid(), " send sigterm with 'kill -{} <pid>' or CTRL-C to stop me gracefully.".format(signal.SIGTERM)
     signal.signal(signal.SIGTERM, receiveSigTermSignal)
     signal.signal(signal.SIGINT, receiveSigTermSignal)
 
