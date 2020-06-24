@@ -44,3 +44,11 @@ I'll use github issues soon to track things that are not working, for now we hav
 1. Error handling, need mechanism to avoid orphaned trouble files, both masters and previews can be orphaned today
 1. Code consistency is like... it took four hours to write #needscleanup
 1. Tons of stuff is missing
+
+
+
+### plan
+
+1. Containerize converter module
+1. Infrastructure to scale converter containers, from 0 to massive (focus on cost-optimization, goal is 0 cost apart from storage when no activity)
+1. Website to display ingested files
