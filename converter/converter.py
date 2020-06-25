@@ -114,8 +114,8 @@ def create_thumbnails(filename):
 
     if debugMode == True:
         #thumbs = create_thumbnails_classic(filename)
-        #thumbs = create_thumbnails_classic_optimized(filename)
-        #thumbs = create_thumbnails_mpr(filename)
+        thumbs = create_thumbnails_classic_optimized(filename)
+        thumbs = create_thumbnails_mpr(filename)
         thumbs = create_thumbnails_mpr_optimized(filename)
     else:
         thumbs = create_thumbnails_mpr_optimized(filename) # assuming this is the fastest way until tests run
@@ -147,14 +147,14 @@ def upload_blob(filename, url, account_key):
 
 
 
-def upload_thumbnails(thumbs, name, instance_name, account_key):
+def upload_thumbnails(thumbs, instance_name, account_key, short_id):
     th_url_list = []
 
     for t in thumbs:
         try:
             qualifier = t[t.rfind('/')+1:]
-            url = "https://{}.blob.core.windows.net/pv-store/{}_{}".format(instance_name, name, qualifier)
-            print "Uploading: " + name + t + " to " + url
+            url = "https://{}.blob.core.windows.net/pv-store/{}_{}".format(instance_name, short_id, qualifier)
+            print "Uploading: " + t + " to " + url
             upload_blob(t, url, account_key)
             th_url_list.append(url)
         except Exception as ex:
@@ -195,7 +195,7 @@ def download_blob(url, account_key):
 # Record handling
 #
 
-def create_file_record(url, name, exifString, xmpString, url_list, md5, sha256, instance_name, account_key):
+def create_file_record(url, unique_id, partition_key, short_id, name, exifString, xmpString, url_list, md5, sha256, instance_name, account_key):
     start = time.time()
 
     utcnow = datetime.datetime.utcnow().isoformat()
@@ -203,10 +203,10 @@ def create_file_record(url, name, exifString, xmpString, url_list, md5, sha256, 
     # Each ingested (and successfully processed) file has a unique record containing
     # information, list of previews, 
     file_record = {
-        'PartitionKey': '',                 # using tree structure for partition key a good idea? #possiblybadidea #possiblygoodidea
-        'RowKey': name,                     # using unique file name for key a good idea? #badidea #mustbeuniqueinpartition
-        'uid': uuid.uuid4().hex,            # globally uniqueId
-        'sid': shortuuid.uuid(),            # system shortId
+        'PartitionKey': partition_key,      # using tree structure for partition key a good idea? #possiblybadidea #possiblygoodidea
+        'RowKey': short_id,                 # using unique file name for key a good idea? #badidea #mustbeuniqueinpartition
+        'uid': unique_id,                   # globally uniqueId
+        'name': name,                       # system shortId
         'it': utcnow,                       # ingestion_time
         'pvs' : json.dumps(url_list),       # json list of preview urls
         'md5' : md5,                        # md5 checksum of total file binary data at ingestion time
@@ -293,7 +293,7 @@ def create_file_checksums(file_name):
 
 
 
-def _handle_image_generic(url, temporary_file_name, name, instance_name, account_key):
+def _handle_image_generic(url, unique_id, partition_key, short_id, temporary_file_name, name, instance_name, account_key):
     thumbs = None
 
     try:
@@ -306,7 +306,7 @@ def _handle_image_generic(url, temporary_file_name, name, instance_name, account
         # file haz xmp metadata?
         
         xmp = None
-        if "profiles" in exif and "xmp" in exif["profiles"]:
+        if "image" in exif and "profiles" in exif["image"] and "xmp" in exif["image"]["profiles"]:
             print "Xmp identified, extracting from file ", temporary_file_name
             xmp = extract_xmp(temporary_file_name)
         else:
@@ -314,14 +314,14 @@ def _handle_image_generic(url, temporary_file_name, name, instance_name, account
 
         # file haz iptc?
 
-        if "profiles" in exif and "iptc" in exif["profiles"]:
+        if "image" in exif and "profiles" in exif["image"] and "iptc" in exif["image"]["profiles"]:
             print "File has iptc metadata, fyi only, not extracting in file ", temporary_file_name
 
         # render previews
 
         thumbs = create_thumbnails(temporary_file_name)
         print "Thumbnails created: {}".format(thumbs)
-        url_list = upload_thumbnails(thumbs, name, instance_name, account_key)
+        url_list = upload_thumbnails(thumbs, instance_name, account_key, short_id)
 
         # calculate checksums
 
@@ -331,7 +331,7 @@ def _handle_image_generic(url, temporary_file_name, name, instance_name, account
         # done the work, create the file record
 
         print "Creating master file record"
-        create_file_record(url, name, exifString, xmp, url_list, md5, sha256, instance_name, account_key)
+        create_file_record(url, unique_id, partition_key, short_id, name, exifString, xmp, url_list, md5, sha256, instance_name, account_key)
 
     finally:
         if not debugMode and thumbs is not None:
@@ -340,7 +340,7 @@ def _handle_image_generic(url, temporary_file_name, name, instance_name, account
 
 
 
-def handle_jpeg_image(url, temporary_file_name, name, instance_name, account_key):
+def handle_jpeg_image(url, unique_id, partition_key, short_id, temporary_file_name, name, instance_name, account_key):
     thumbs = None
 
     try:
@@ -350,11 +350,11 @@ def handle_jpeg_image(url, temporary_file_name, name, instance_name, account_key
             raise FileTypeValidationException("{} ext .jpg is not identified as JPEG.".format(temporary_file_name))
 
         # handle image
-        _handle_image_generic(url, temporary_file_name, name, instance_name, account_key)
+        _handle_image_generic(url, unique_id, partition_key, short_id, temporary_file_name, name, instance_name, account_key)
 
     except Exception as ex:
         print "handle_image exception: ", ex.message
-        # todo: if we fail here, consider tainted and ask infra to recycle container?
+        # TODO: if we fail here, consider tainted and ask infra to recycle container?
         # can do by setting global stopSignal = True or using exit(), unsure of best approach
 
 
@@ -373,27 +373,82 @@ def handle_jpeg_image(url, temporary_file_name, name, instance_name, account_key
 # and what is handled in different workers (currently only one
 # worker in action, will expand in future)
 #
- 
+
+def create_orphan_record(url, unique_id, partition_key, short_id, instance_name, account_key):
+    start = time.time()
+    utcnow = datetime.datetime.utcnow().isoformat()
+
+    print "Creating orphan record"
+
+    # Each ingested (and successfully processed) file has a unique record containing
+    # information, list of previews, 
+    orphan_record = {
+        'PartitionKey': partition_key,          # using tree structure for partition key a good idea? #possiblybadidea #possiblygoodidea
+        'RowKey': short_id,                     # lookup key for this asset
+        'uid': unique_id,                       # globally uniqueId
+        'url': url,                             # original asset url
+        'it': utcnow                            # ingestion_time
+    }
+
+    table_service = TableService(account_name=instance_name, account_key=account_key)
+    table_service.insert_or_replace_entity('orphans', orphan_record)
+
+    print "orphan_record inserted in {} sec".format(time.time()-start)
+
+
+
+def delete_orphan_record(partition_key, short_id, instance_name, account_key):
+    start = time.time()
+
+    table_service = TableService(account_name=instance_name, account_key=account_key)
+    table_service.delete_entity('orphans', partition_key, short_id)
+
+    print "delete_orphan_record completed in {} sec".format(time.time()-start)
+
+
+
 def handle_message(json_message, instance_name, account_key):
     url = json_message["data"]["url"]
     print "Starting file processing of " + url
 
     # parse url
+
     fn = urlparse(url).path
     extension = fn[fn.rfind('.')+1:].lower() # convert to lowercase, see switch below
-    name = fn[fn.rfind('/')+1:fn.rfind('.')]
+    #name = fn[fn.rfind('/')+1:fn.rfind('.')]
+    name = fn[fn.rfind('/')+1:]
 
     print "Pathinfo: " + fn + ", " + name + ", " + extension
-    # todo: manage rest of process based on extension
-    # todo: use identify -verbose <fn> to get info on file and validate
-    # todo: extract exif and xmp metadata
+
+    # create id's for this file
+
+    unique_id = uuid.uuid4().hex
+    partition_key = shortuuid.random(length=3)
+    short_id = partition_key + '-' + shortuuid.random(length=7)
+
+    print "Unique ids: unique_id: {}, partition_key: {}, short_id: {}".format(unique_id, partition_key, short_id)
+
+    # create orphan record in case the ingestion process breaks
+    # the orphan record will be used to clean up any stray data in case we cannot
+    # complete the process and get left in-between
+
+    # TODO: lookup orphan message, clean up, and take protective action
+    # we must treat the file as a generic file and mark it invalid
+    # to avoid processing it over and over again
+
+    create_orphan_record(url, unique_id, partition_key, short_id, instance_name, account_key)
+
+
+    # TODO: manage rest of process based on extension
+    # TODO: use identify -verbose <fn> to get info on file and validate
+    # TODO: extract exif and xmp metadata
 
     tempFileName = None
 
     try:
         if extension == "jpg":
             tempFileName = download_blob(url, account_key)
-            handle_jpeg_image(url, tempFileName, name, instance_name, account_key)
+            handle_jpeg_image(url, unique_id, partition_key, short_id, tempFileName, name, instance_name, account_key)
         else:
             print "Don't know how to handle this file type"
             # TODO: discard file by marking in an unknown table?
@@ -405,6 +460,12 @@ def handle_message(json_message, instance_name, account_key):
     finally:
         if not debugMode and tempFileName is not None:
             os.remove(tempFileName)
+
+    # we're done, clean up the orphan tracking record
+
+    delete_orphan_record(partition_key, short_id, instance_name, account_key)
+
+    return short_id # just to get closure
 
 
 
@@ -422,16 +483,16 @@ def dequeue_messages(config_instance_name, config_account_key):
         try:
             start = time.time()
             message = json.loads(base64.b64decode(msg.content))
-            # todo: bring message along so that we can update it to keep it reserved until we're done
+            # TODO: bring message along so that we can update it to keep it reserved until we're done
             # all thumbnail resizing is making us pass 30 seconds and we loose the msg
-            handle_message(message, config_instance_name, config_account_key)
+            key = handle_message(message, config_instance_name, config_account_key)
         
             if not debugMode:
                 queue_service.delete_message(msg)
             else:
                 print "Debug mode, not removing message from queue."
 
-            print "Message handled in {} seconds.".format(time.time()-start)
+            print "Message handled in {} seconds, created file {}".format(time.time()-start, key)
 
             if (stopSignal is not None) and (stopSignal == True):
                 return
