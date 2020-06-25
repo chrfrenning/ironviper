@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="styles.css">
+  <title>ironviper</title>
+</head>
+
+<body>
+  <main>
+    <h1>ironviper</h1>
+    <p>From the API: <b id="name">...</b></p>
+  </main>
+
+  <script>
+    (async function() {
+      let { text } = await( await fetch(`/api/GetStream`)).json();
+      document.querySelector('#name').textContent = text;
+    }())
+  </script>
+</body>
+
+</html>
