@@ -64,6 +64,7 @@ az storage container create --account-name $rgn --name "file-store"
 az storage container create --account-name $rgn --name "pv-store"
 az storage queue create --account-name $rgn --name "extract-queue"
 az storage table create --account-name $rgn --name "files"
+az storage table create --account-name $rgn --name "orphans"
 
 # Hook up storage events to the extract-queue
 storageId=$(az storage account show -n $rgn -g $rgn --query id --output tsv)
