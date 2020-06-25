@@ -3,7 +3,10 @@ var storage = require('azure-storage')
 module.exports = function (context, req) { // removed async to be able to use table api
     console.log('Querying table service');
 
-    client = storage.createTableService('DefaultEndpointsProtocol=https;AccountName=ironviper00b6e128;AccountKey=FXIAyF/d8IczfJNHZ1EO+zi3rQeXOc8sKOJtVRnkYdfWiHcqXZdEeH2hWZ3whmDhBrhWQqd/h509p11R7HQdOw==;EndpointSuffix=core.windows.net');
+    var account;
+    var accountKey; // load from configuration
+    
+    client = storage.createTableService('DefaultEndpointsProtocol=https;AccountName=' + account + ';AccountKey=' + accountKey + ';EndpointSuffix=core.windows.net');
     
     client.retrieveEntity('files', '', 'DSCF8458', function(e,r) { 
         console.log("Query completed.");
