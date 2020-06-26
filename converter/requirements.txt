@@ -4,3 +4,4 @@ azure-keyvault-secrets
 azure.identity
 azure-cosmosdb-table
 shortuuid
+toml

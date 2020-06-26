@@ -37,12 +37,12 @@ debugMode = False
 def create_thumbnails_classic(filename):
     start = time.time()
 
-    os.system("./magick convert {} -resize '1600x>' -quality 80 -interlace Plane -strip /tmp/1600.jpg".format(filename))
-    os.system("./magick convert {} -resize '800>' -quality 80 -interlace Plane -strip /tmp/800.jpg".format(filename))
-    os.system("./magick convert {} -resize '600>' -quality 80 -interlace Plane -strip /tmp/600.jpg".format(filename))
-    os.system("./magick convert {} -resize '400>' -quality 80 -interlace Plane -strip /tmp/400.jpg".format(filename))
-    os.system("./magick convert {} -resize '200>' -quality 80 -interlace Plane -strip /tmp/200.jpg".format(filename))
-    os.system("./magick convert {} -thumbnail '100x100' /tmp/100.jpg".format(filename))
+    os.system("convert {} -resize '1600x>' -quality 80 -interlace Plane -strip /tmp/1600.jpg".format(filename))
+    os.system("convert {} -resize '800>' -quality 80 -interlace Plane -strip /tmp/800.jpg".format(filename))
+    os.system("convert {} -resize '600>' -quality 80 -interlace Plane -strip /tmp/600.jpg".format(filename))
+    os.system("convert {} -resize '400>' -quality 80 -interlace Plane -strip /tmp/400.jpg".format(filename))
+    os.system("convert {} -resize '200>' -quality 80 -interlace Plane -strip /tmp/200.jpg".format(filename))
+    os.system("convert {} -thumbnail '100x100' /tmp/100.jpg".format(filename))
 
     print "create_thumbnails_classic completed in {} seconds".format(time.time() - start)
 
@@ -54,12 +54,12 @@ def create_thumbnails_classic(filename):
 def create_thumbnails_classic_optimized(filename):
     start = time.time()
 
-    os.system("./magick convert {} -resize '1600x>' -quality 80 -interlace Plane -strip /tmp/1600.jpg".format(filename))
-    os.system("./magick convert /tmp/1600.jpg -resize '800>' -quality 80 -interlace Plane -strip /tmp/800.jpg".format(filename))
-    os.system("./magick convert /tmp/1600.jpg -resize '600>' -quality 80 -interlace Plane -strip /tmp/600.jpg".format(filename))
-    os.system("./magick convert /tmp/800.jpg -resize '400>' -quality 80 -interlace Plane -strip /tmp/400.jpg".format(filename))
-    os.system("./magick convert /tmp/800.jpg -resize '200>' -quality 80 -interlace Plane -strip /tmp/200.jpg".format(filename))
-    os.system("./magick convert /tmp/800.jpg -thumbnail '100x100' /tmp/100.jpg".format(filename))
+    os.system("convert {} -resize '1600x>' -quality 80 -interlace Plane -strip /tmp/1600.jpg".format(filename))
+    os.system("convert /tmp/1600.jpg -resize '800>' -quality 80 -interlace Plane -strip /tmp/800.jpg".format(filename))
+    os.system("convert /tmp/1600.jpg -resize '600>' -quality 80 -interlace Plane -strip /tmp/600.jpg".format(filename))
+    os.system("convert /tmp/800.jpg -resize '400>' -quality 80 -interlace Plane -strip /tmp/400.jpg".format(filename))
+    os.system("convert /tmp/800.jpg -resize '200>' -quality 80 -interlace Plane -strip /tmp/200.jpg".format(filename))
+    os.system("convert /tmp/800.jpg -thumbnail '100x100' /tmp/100.jpg".format(filename))
 
     print "create_thumbnails_classic_optimized completed in {} seconds".format(time.time() - start)
 
@@ -71,7 +71,7 @@ def create_thumbnails_classic_optimized(filename):
 def create_thumbnails_mpr(filename):
     start = time.time()
 
-    os.system("./magick convert {} -write mpr:main +delete" \
+    os.system("convert {} -write mpr:main +delete" \
         " mpr:main -resize \"1600x>\" -quality 80 -interlace Plane -strip -write /tmp/1600.jpg +delete" \
         " mpr:main -resize \"800x>\" -quality 80 -interlace Plane -strip -write /tmp/800.jpg +delete" \
         " mpr:main -resize \"600>\" -quality 80 -interlace Plane -strip -write /tmp/600.jpg +delete" \
@@ -95,7 +95,7 @@ def create_thumbnails_mpr_optimized(filename):
     # mpr:main -write 1600.jpg +delete 
     # mpr:main -thumbnail '100x100' 100.jpg
 
-    os.system("./magick convert {} -resize '1600x>' -quality 80 -interlace Plane -strip -write mpr:main +delete" \
+    os.system("convert {} -resize '1600x>' -quality 80 -interlace Plane -strip -write mpr:main +delete" \
         " mpr:main -write /tmp/1600.jpg +delete" \
         " mpr:main -resize '800x>' -quality 80 -interlace Plane -strip -write /tmp/800.jpg +delete" \
         " mpr:main -resize '600x>' -quality 80 -interlace Plane -strip -write /tmp/600.jpg +delete" \
@@ -235,7 +235,7 @@ class FileTypeValidationException(Exception):
 def identify_image(file_name):
     try:
         start = time.time()
-        cmd = "./magick identify -ping -format \"%m\" {}".format(file_name)
+        cmd = "identify -ping -format \"%m\" {}".format(file_name)
         output = subprocess.check_output(cmd, shell=True)
         print "File {} identified as: ".format(file_name), output
         print "identify_image completed in ", time.time()-start
@@ -248,7 +248,7 @@ def identify_image(file_name):
 def extract_exif(file_name):
     try:
         start = time.time()
-        cmd = "./magick convert -ping {} json:".format(file_name)
+        cmd = "convert -ping {} json:".format(file_name)
         output = subprocess.check_output(cmd, shell=True)
         print "extract_exif completed in ", time.time()-start
         return output
@@ -261,7 +261,7 @@ def extract_exif(file_name):
 def extract_xmp(file_name):
     try:
         start = time.time()
-        cmd = "./magick convert -ping {} XMP:-".format(file_name)
+        cmd = "convert -ping {} XMP:-".format(file_name)
         output = subprocess.check_output(cmd, shell=True)
         print "extract_xmp completed in ", time.time()-start
         return output
@@ -517,12 +517,23 @@ def dequeue_messages(config_instance_name, config_account_key):
 #
  
 def load_configuration():
-    # Load config to know where to talk
-    configuration = toml.load("../configuration.toml")
+    # this depends on whether we're in a docker container
+    # or development environment
+    # TODO: Consider how to use keyvault in this
 
-    # Read configuration parameters
-    cloud_instance_name = configuration["instance_name"]
-    account_key = configuration["account_key"] # TODO: Get from keyvault
+    cloud_instance_name = None
+    account_key = None
+
+    if debugMode:
+        # Load config to know where to talk
+        configuration = toml.load("../configuration.toml")
+
+        # Read configuration parameters
+        cloud_instance_name = configuration["instance_name"]
+        account_key = configuration["account_key"] 
+    else:
+        cloud_instance_name = os.environ['INSTANCE_NAME']
+        account_key = os.environ["ACCOUNT_KEY"] 
 
     return cloud_instance_name, account_key
 
