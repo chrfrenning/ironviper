@@ -12,6 +12,12 @@ Note! this project is at very early stage, not much functioning yet. Want the ni
 Current status is that resource provisioning (deploy_azure.sh) is working, and manual uploads of files to 'file-store' container will result in thumbs and previews generated if you run the converter container somewhere. #notforthefaintofheart
 
 
+## can i test this somehow?
+
+Once more of the project is done, I will set up a public test site so that you can see what this is about without
+deploying and running the stuff yourself.
+
+
 ## how to get started
 
 1. You need an Azure subscription.
@@ -25,7 +31,7 @@ Current status is that resource provisioning (deploy_azure.sh) is working, and m
 ```
 
 1. Fire up a linux instance somewhere, you need docker support
-1. Copy the configuration.toml from your azure shell instance
+1. Copy the configuration.toml from your azure shell instance (bug! that won't work, you'll need to create it yourself. hints in setup.sh)
 1. Run 'export DEBUG=1'
 1. Run 'python ./converter/run_docker.py' to start a container with the converter
 1. Upload some files using 'python tools/upload.py'
