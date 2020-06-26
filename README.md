@@ -20,15 +20,16 @@ Current status is that resource provisioning (deploy_azure.sh) is working, and m
 
 ```
     
-    curl -sL https://raw.githubusercontent.com/chrfrenning/ironviper/master/setup.sh | bash 
+    curl -sL https://raw.githubusercontent.com/chrfrenning/ironviper/main/setup.sh | bash 
     
 ```
 
-1. This will take a few minutes, then you're ready to go!
-1. In lack of the worker container, here's how to test ingestion, metadata extraction and preview creation
-    1. Fire up a linux instance somewhere
-    1. Copy the configuration.toml from your azure shell instance
-    1. Run 'python ./converter/run_docker.py' to keep the worker going
+1. Fire up a linux instance somewhere, you need docker support
+1. Copy the configuration.toml from your azure shell instance
+1. Run 'export DEBUG=1'
+1. Run 'python ./converter/run_docker.py' to start a container with the converter
+1. Upload some files using 'python tools/upload.py'
+1. Inspect the files table, pv-store to see output
 
 
 ### issues
