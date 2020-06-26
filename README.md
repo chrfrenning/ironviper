@@ -20,7 +20,7 @@ Current status is that resource provisioning (deploy_azure.sh) is working, and m
 
 ```
     
-    curl -sL https://raw.githubusercontent.com/chrfrenning/ironviper/master/setup.sh | bash 
+    curl -sL https://raw.githubusercontent.com/chrfrenning/ironviper/main/setup.sh | bash 
     
 ```
 
