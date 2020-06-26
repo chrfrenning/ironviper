@@ -5,6 +5,8 @@
 
 echo "Not quite there yet, try again in a few cycles..."
 
+sudo docker build -t ironviper-converter ./converter/.
+
 sudo chmod +x ./infrastructure/deploy_azure.sh
 ./infrastructure/deploy_azure.sh
 
@@ -17,13 +19,11 @@ sudo chmod +x ./infrastructure/deploy_azure.sh
 pip install --no-cache-dir -r requirements.txt
 
 # install imagemagick
-
-curl https://imagemagick.org/download/binaries/magick > ./converter/magick
-chmod +x ./converter/magick
-
-# install ufraw
-sudo apt-get install ufraw-batch
-
+# that didn't work in docker, have to build imagemagick, thats for later
+# using embedded in docker pyhon image for now (no digcam support)
+# curl https://imagemagick.org/download/binaries/magick > ./converter/magick
+# chmod +x ./converter/magick
+# sudo apt-get install ufraw-batch # install ufraw
 
 # TODO: Write from configuration to /frontend/local.settings.json for easier debugging, we need instancename and storagekey
 
