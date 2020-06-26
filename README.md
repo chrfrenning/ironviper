@@ -52,3 +52,4 @@ I'll use github issues soon to track things that are not working, for now we hav
 1. Infrastructure to scale converter containers, from 0 to massive (focus on cost-optimization, goal is 0 cost apart from storage when no activity)
 1. Web frontend to display ingested files
 1. Split setup.sh into 1) default provision in azure only 2) and optional setup local dev and debug environment
+1. Handle digital negatives with dcraw (must build imagemagick from source when creating container?)

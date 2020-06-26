@@ -1,0 +1,6 @@
+azure-storage-queue
+azure-storage-blob
+azure-keyvault-secrets
+azure.identity
+azure-cosmosdb-table
+shortuuid
