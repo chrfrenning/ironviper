@@ -1,0 +1,20 @@
+{
+    "routes": [
+      {
+        "route": "/id/*",
+        "serve": "/detail.html"
+      },
+      {
+        "route": "/files/*",
+        "serve": "/folder.html"
+      },
+      {
+        "route": "/tags/*",
+        "serve": "/tag.html"
+      },
+      {
+        "route": "/stream/*",
+        "serve": "/index.html"
+      }
+    ]
+  }
