@@ -51,7 +51,7 @@ I'll use github issues soon to track things that are not working, for now we hav
 ### plan
 
 1. ~Containerize converter module~
-1. Scaffold api
+1. ~Scaffold api~
 1. ~Ingest test files to storage at setup~ and automate test file uploads
 1. Infrastructure to scale converter containers, from 0 to massive (focus on cost-optimization, goal is 0 cost apart from storage when no activity)
 1. Web frontend to display ingested files. Headache: choosing frontend framework, react, vue, angular???
