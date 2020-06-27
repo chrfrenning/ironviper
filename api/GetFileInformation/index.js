@@ -6,16 +6,11 @@ module.exports = function (context, req) {
     var account = process.env["InstanceName"];
     var accountKey = process.env["StorageAccountKey"];
 
-    var id = req.query.id;
-    var sep = id.find('-')
-    var partition_key = id.split(0,sep)
-    var row_key = id.split(sep+1)
-
     // query azure table storage
 
     client = storage.createTableService('DefaultEndpointsProtocol=https;AccountName=' + account + ';AccountKey=' + accountKey + ';EndpointSuffix=core.windows.net');
     
-    client.retrieveEntity('files', partition_key, row_key, function(e,r) { 
+    client.retrieveEntity('files', '', 'DSCF8458', function(e,r) { 
         console.log("Query completed.");
         
         if ( !e )
