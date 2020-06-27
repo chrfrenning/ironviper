@@ -2,7 +2,7 @@
 
 # Setup script for ironviper cloud infrastructure
 #
-# Author Christopher Frenning chfrenni@microsoft.com; twitter @chrfrenning
+# Author Christopher Frenning christopher@frenning.com; @chrfrenning
 # Open Source github.com/chrfrenning/ironviper - see repo for license
 #
 # Notes: This is an early version and has [many|some|unknown] issues
@@ -82,6 +82,9 @@ az eventgrid event-subscription create --name "new-files-to-extractors" --source
 # TODO: Set up functions on consumption plan and push api
 # Setup script for ironviper
 
+# Download some test files and send them to the system for ingestion
+azcopy copy https://chphno.blob.core.windows.net/ironviper-testfiles/ ./tmp --recursive # standard sample file collection
+for f in ./tmp/ironviper-testfiles/*; do python ./tools/upload.py $f; done # push all files into the system
 
 # #####################################################################
 # 
