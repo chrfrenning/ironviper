@@ -526,7 +526,8 @@ def load_configuration():
 
     if debugMode:
         # Load config to know where to talk
-        configuration = toml.load("../configuration.toml")
+        configuration_file_name = os.path.dirname(os.path.abspath(__file__)) + "/../configuration.toml"
+        configuration = toml.load(configuration_file_name)
 
         # Read configuration parameters
         cloud_instance_name = configuration["instance_name"]

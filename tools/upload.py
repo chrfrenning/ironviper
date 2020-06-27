@@ -3,7 +3,10 @@ import uuid
 import sys
 import os
 
-configuration = toml.load("../configuration.toml")
+# find path of the configuraiton file
+configuration_file_name = os.path.dirname(os.path.abspath(__file__)) + "/../configuration.toml"
+
+configuration = toml.load(configuration_file_name)
 account_name = configuration["instance_name"]
 account_key = configuration["account_key"]
 
