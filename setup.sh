@@ -87,13 +87,21 @@ echo "static_url = \"$staticurl\"" >> ./configuration.toml
 az storage account create -n fn$rgn -l $location -g $rgn --sku Standard_LRS --kind "StorageV2" # not sure if we need a separate storage account?
 az resource create -g $rgn -n $rgn --resource-type "Microsoft.Insights/components" --properties {\"Application_Type\":\"web\"}
 
-# TODO: Revisit at a later stage, see 
+# TODO: Revisit at a later stage, see https://github.com/Azure/azure-cli/issues/11195
 # az functionapp plan create -n $rgn -g $rgn --sku Dynamic
 # above doesn't work. no way to create a consumption plan explicitly, this means we have to live with the plan being named by the system
 
 az functionapp create -n $rgn -g $rgn --storage-account fn$rgn --consumption-plan-location $location --app-insights $rgn --runtime node --functions-version 3
 functionsurl=$(az functionapp list -g $rgn | jq -r ".[].hostNames[0]")
 echo "functions_url = \"$staticurl\"" >> ./configuration.toml
+
+cd api
+zip -r ../tmp/api.zip *
+cd ..
+az functionapp deployment source config-zip -g $rgn -n $rgn --src ./tmp/api.zip
+
+az functionapp config appsettings set --n $rgn -g $rgn --settings "InstanceName=$rgn;StorageAccountKey=$storageKey"
+# TODO: Make function app get storage key from keyvault instead of configuration
 
 # TODO: Setup ACI for converter container image
 
