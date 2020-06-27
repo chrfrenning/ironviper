@@ -77,10 +77,17 @@ subjectFilter="/blobServices/default/containers/file-store/blobs/"
 az eventgrid event-subscription create --name "new-files-to-extractors" --source-resource-id $storageId --subject-begins-with $subjectFilter --endpoint-type "storagequeue" --endpoint $queueId
 
 # TODO: Build and push static webfrontend to $web in storage account
-# TODO: Set up cdn?
-# TODO: Setup ACI for converter container image
+
+az storage blob service-properties update --account-name $rgn --account-key $storageKey --static-website --404-document 404.html --index-document index.html
+az storage blob upload-batch -s ./frontend -d '$web' --account-name $rgn --account-key $storageKey
+staticurl=$(az storage account show -n $rgn -g $rgn --query "primaryEndpoints.web" --output tsv)
+echo "static_url = \"$staticurl\"" >> ./configuration.toml
+
 # TODO: Set up functions on consumption plan and push api
-# Setup script for ironviper
+
+# TODO: Setup ACI for converter container image
+
+# TODO: Set up cdn? #notyet
 
 # Download some test files and send them to the system for ingestion
 azcopy copy https://chphno.blob.core.windows.net/ironviper-testfiles/ ./tmp --recursive # standard sample file collection
