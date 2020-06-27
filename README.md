@@ -52,7 +52,7 @@ I'll use github issues soon to track things that are not working, for now we hav
 
 1. ~Containerize converter module~
 1. Scaffold api
-1. Ingest test files to storage at setup and automate test file uploads
+1. ~Ingest test files to storage at setup~ and automate test file uploads
 1. Infrastructure to scale converter containers, from 0 to massive (focus on cost-optimization, goal is 0 cost apart from storage when no activity)
 1. Web frontend to display ingested files. Headache: choosing frontend framework, react, vue, angular???
 1. Split setup.sh into 1) default provision in azure only (it-pro mode) 2) and optional setup local dev and debug environment (pro-dev mode)
