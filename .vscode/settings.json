@@ -4,5 +4,21 @@
     "azureFunctions.projectLanguage": "JavaScript",
     "azureFunctions.projectRuntime": "~3",
     "debug.internalConsoleOptions": "neverOpen",
-    "azureFunctions.preDeployTask": "npm prune"
+    "azureFunctions.preDeployTask": "npm prune",
+    "liveServer.settings.port": 5500,
+    "liveServer.settings.root": "/frontend",
+    "liveServer.settings.CustomBrowser" : "chrome",
+    "liveServer.settings.AdvanceCustomBrowserCmdLine": "chrome --incognito --remote-debugging-port=9222",
+    "liveServer.settings.NoBrowser" : true,
+    "liveServer.settings.ignoreFiles" : [
+            ".vscode/**",
+            "**/*.scss",
+            "**/*.sass"
+    ],
+    "liveServer.settings.donotShowInfoMsg" : true,
+    "liveServer.settings.proxy": {
+        "enable": true, //set it true to enable the feature.
+        "baseUri": "/api/", //from where you want to proxy. 
+        "proxyUri": "http://localhost:7071/api/" //the actual url.
+    },
 }
