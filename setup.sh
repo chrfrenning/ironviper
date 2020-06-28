@@ -84,14 +84,14 @@ staticurl=$(az storage account show -n $rgn -g $rgn --query "primaryEndpoints.we
 echo "static_url = \"$staticurl\"" >> ./configuration.toml
 
 # TODO: Set up functions on consumption plan and push api
-az storage account create -n fn$rgn -l $location -g $rgn --sku Standard_LRS --kind "StorageV2" # not sure if we need a separate storage account?
+az storage account create -n fn$rnd -l $location -g $rgn --sku Standard_LRS --kind "StorageV2" # not sure if we need a separate storage account?
 az resource create -g $rgn -n $rgn --resource-type "Microsoft.Insights/components" --properties {\"Application_Type\":\"web\"}
 
 # TODO: Revisit at a later stage, see https://github.com/Azure/azure-cli/issues/11195
 # az functionapp plan create -n $rgn -g $rgn --sku Dynamic
 # above doesn't work. no way to create a consumption plan explicitly, this means we have to live with the plan being named by the system
 
-az functionapp create -n $rgn -g $rgn --storage-account fn$rgn --consumption-plan-location $location --app-insights $rgn --runtime node --functions-version 3
+az functionapp create -n $rgn -g $rgn --storage-account fn$rnd --consumption-plan-location $location --app-insights $rgn --runtime node --functions-version 3
 functionsurl=$(az functionapp list -g $rgn | jq -r ".[].hostNames[0]")
 echo "functions_url = \"$staticurl\"" >> ./configuration.toml
 
