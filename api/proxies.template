@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json.schemastore.org/proxies",
+  "proxies": {
+    "index": {
+      "matchCondition": {
+        "route": "/",
+        "methods": [
+          "GET"
+        ]
+      },
+      "backendUri": "BACKENDindex.html"
+    },
+    "detail-view": {
+      "matchCondition": {
+        "route": "/files/{id}",
+        "methods": [
+          "GET"
+        ]
+      },
+      "backendUri": "BACKENDdetail.html"
+    }
+  }
+}

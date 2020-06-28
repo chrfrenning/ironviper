@@ -93,3 +93,4 @@ obj
 appsettings.json
 local.settings.json
 package-lock.json
+proxies.json
