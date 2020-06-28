@@ -144,8 +144,7 @@ if [ "$1" = "--development" ]; then
     # TODO: Build dcraw, ufraw-batch, exiftool, imagemagick
     # TODO: Write from configuration to /frontend/local.settings.json for easier debugging, we need instancename and storagekey
 else
-    cd ..
-    rm -rf $rgn/
+    rm -rf ./$rgn
 fi
 
 
