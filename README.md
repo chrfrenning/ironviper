@@ -59,3 +59,4 @@ I'll use github issues soon to track things that are not working, for now we hav
 1. Web frontend to display ingested files. Headache: choosing frontend framework, react, vue, angular???
 1. Split setup.sh into 1) default provision in azure only (it-pro mode) 2) and optional setup local dev and debug environment (pro-dev mode)
 1. Handle digital negatives with dcraw (must build imagemagick from source when creating container?)
+1. change from python 2 to 3 for converter? consider at a later point, if we want a smaller container image we may have to forgo python anyhow.
