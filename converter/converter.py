@@ -24,8 +24,9 @@ from azure.cosmosdb.table.models import Entity
 #
 # Global variables (hell yeah)
 
-stopSignal = None
+stopSignal = False
 debugMode = False
+debugDisableMessageDeque = False
 
 
 
@@ -195,7 +196,7 @@ def download_blob(url, account_key):
 # Record handling
 #
 
-def create_file_record(url, unique_id, partition_key, short_id, name, exifString, xmpString, url_list, md5, sha256, instance_name, account_key):
+def create_file_record(url, unique_id, partition_key, short_id, name, extension, exifString, xmpString, url_list, md5, sha256, instance_name, account_key):
     start = time.time()
 
     utcnow = datetime.datetime.utcnow().isoformat()
@@ -206,7 +207,9 @@ def create_file_record(url, unique_id, partition_key, short_id, name, exifString
         'PartitionKey': partition_key,      # using tree structure for partition key a good idea? #possiblybadidea #possiblygoodidea
         'RowKey': short_id,                 # using unique file name for key a good idea? #badidea #mustbeuniqueinpartition
         'uid': unique_id,                   # globally uniqueId
-        'name': name,                       # system shortId
+        'url': url,                         # master blob url
+        'name': name,                       # filename
+        'ext' : extension,                  # file extension
         'it': utcnow,                       # ingestion_time
         'pvs' : json.dumps(url_list),       # json list of preview urls
         'md5' : md5,                        # md5 checksum of total file binary data at ingestion time
@@ -293,7 +296,7 @@ def create_file_checksums(file_name):
 
 
 
-def _handle_image_generic(url, unique_id, partition_key, short_id, temporary_file_name, name, instance_name, account_key):
+def _handle_image_generic(url, unique_id, partition_key, short_id, temporary_file_name, name, extension, instance_name, account_key):
     thumbs = None
 
     try:
@@ -331,7 +334,7 @@ def _handle_image_generic(url, unique_id, partition_key, short_id, temporary_fil
         # done the work, create the file record
 
         print "Creating master file record"
-        create_file_record(url, unique_id, partition_key, short_id, name, exifString, xmp, url_list, md5, sha256, instance_name, account_key)
+        create_file_record(url, unique_id, partition_key, short_id, name, extension, exifString, xmp, url_list, md5, sha256, instance_name, account_key)
 
     finally:
         if not debugMode and thumbs is not None:
@@ -340,7 +343,7 @@ def _handle_image_generic(url, unique_id, partition_key, short_id, temporary_fil
 
 
 
-def handle_jpeg_image(url, unique_id, partition_key, short_id, temporary_file_name, name, instance_name, account_key):
+def handle_jpeg_image(url, unique_id, partition_key, short_id, temporary_file_name, name, extension, instance_name, account_key):
     thumbs = None
 
     try:
@@ -350,13 +353,35 @@ def handle_jpeg_image(url, unique_id, partition_key, short_id, temporary_file_na
             raise FileTypeValidationException("{} ext .jpg is not identified as JPEG.".format(temporary_file_name))
 
         # handle image
-        _handle_image_generic(url, unique_id, partition_key, short_id, temporary_file_name, name, instance_name, account_key)
+        _handle_image_generic(url, unique_id, partition_key, short_id, temporary_file_name, name, extension, instance_name, account_key)
 
     except Exception as ex:
         print "handle_image exception: ", ex.message
         raise ex
         # TODO: if we fail here, consider tainted and ask infra to recycle container?
         # can do by setting global stopSignal = True or using exit(), unsure of best approach
+
+
+
+
+def handle_generic_file(url, unique_id, partition_key, short_id, temporary_file_name, name, extension, instance_name, account_key):
+    thumbs = None
+
+    try:
+        # calculate checksums
+
+        print "Calculating checksums of original file"
+        md5, sha256 = create_file_checksums(temporary_file_name)
+
+        # done the work, create the file record
+
+        print "Creating master file record"
+        create_file_record(url, unique_id, partition_key, short_id, name, extension, None, None, None, md5, sha256, instance_name, account_key)
+
+
+    except Exception as ex:
+        print "handle_generic_file exception: ", ex.message
+        raise ex
 
 
 
@@ -408,19 +433,7 @@ def delete_orphan_record(partition_key, short_id, instance_name, account_key):
 
 
 
-def handle_message(json_message, instance_name, account_key):
-    url = json_message["data"]["url"]
-    print "Starting file processing of " + url
-
-    # parse url
-
-    fn = urlparse(url).path
-    extension = fn[fn.rfind('.')+1:].lower() # convert to lowercase, see switch below
-    #name = fn[fn.rfind('/')+1:fn.rfind('.')]
-    name = fn[fn.rfind('/')+1:]
-
-    print "Pathinfo: " + fn + ", " + name + ", " + extension
-
+def handle_new_file(url, name, extension, instance_name, account_key):
     # create id's for this file
 
     unique_id = uuid.uuid4().hex
@@ -444,15 +457,14 @@ def handle_message(json_message, instance_name, account_key):
     # TODO: use identify -verbose <fn> to get info on file and validate
     # TODO: extract exif and xmp metadata
 
-    tempFileName = None
+    tempFileName = download_blob(url, account_key)
 
     try:
         if extension == "jpg":
-            tempFileName = download_blob(url, account_key)
-            handle_jpeg_image(url, unique_id, partition_key, short_id, tempFileName, name, instance_name, account_key)
+            handle_jpeg_image(url, unique_id, partition_key, short_id, tempFileName, name, extension, instance_name, account_key)
         else:
-            print "Don't know how to handle this file type"
-            # TODO: discard file by marking in an unknown table?
+            print "Don't recognize extension, handling as generic file"
+            handle_generic_file(url, unique_id, partition_key, short_id, tempFileName, name, extension, instance_name, account_key)
     except FileTypeValidationException as ftvex:
         # TODO: Mark file as invalid in table, alt treat as generic file type
         pass
@@ -464,7 +476,45 @@ def handle_message(json_message, instance_name, account_key):
 
     delete_orphan_record(partition_key, short_id, instance_name, account_key)
 
-    return short_id # just to get closure
+
+
+def handle_deleted_file(url, name, extension, instance_name, account_key):
+    # TODO: Decide best approach to handle situations when admin (or some process or something else?)
+    # deletes files in the main blob store.
+    # 1. Do we just comply and delete the file from the system?
+    # 2. Do we mark our record as deleted, and offer features around this?
+    # 3. Do we just operate with a 'broken' link - it won't have any effect until anyone wants to download the original file
+    pass
+
+
+
+def handle_message(json_message, instance_name, account_key):
+    url = json_message["data"]["url"]
+    print "Starting file processing of " + url
+
+    # parse url
+
+    fn = urlparse(url).path
+    extension = fn[fn.rfind('.')+1:].lower() # convert to lowercase, see switch below
+    name = fn[fn.rfind('/')+1:fn.rfind('.')]
+    #name = fn[fn.rfind('/')+1:]
+
+    print "Pathinfo: " + fn + ", " + name + ", " + extension
+
+    # type of message?
+    
+    event_type = json_message["eventType"]
+    print "Event type: ", event_type
+
+    if event_type == "Microsoft.Storage.BlobDeleted":
+        handle_deleted_file(url, name, extension, instance_name, account_key)
+    elif event_type == "Microsoft.Storage.BlobCreated":
+        handle_new_file(url, name, extension, instance_name, account_key)
+    else:
+        if debugMode == True:
+            raise Exception("Unknown event type ({}).".format(event_type))
+        else:
+            print "Unknown event type ({}), ignoring message and deleting.".format(event_type)
 
 
 
@@ -484,16 +534,16 @@ def dequeue_messages(config_instance_name, config_account_key):
             message = json.loads(base64.b64decode(msg.content))
             # TODO: bring message along so that we can update it to keep it reserved until we're done
             # all thumbnail resizing is making us pass 30 seconds and we loose the msg
-            key = handle_message(message, config_instance_name, config_account_key)
+            handle_message(message, config_instance_name, config_account_key)
         
-            if not debugMode:
+            if debugDisableMessageDeque == False:
                 queue_service.delete_message(msg)
             else:
                 print "Debug mode, not removing message from queue."
 
-            print "Message handled in {} seconds, created file {}".format(time.time()-start, key)
+            print "Message handled in {} seconds.".format(time.time()-start)
 
-            if (stopSignal is not None) and (stopSignal == True):
+            if stopSignal == True:
                 return
 
         except Exception as ex:
@@ -567,6 +617,11 @@ def main():
         debugMode = True
         print("Running in Debug mode")
 
+    if os.environ.get("DISABLEDEQUES", "0") == "1":
+        global debugDisableMessageDeque
+        debugDisableMessageDeque = True
+        print("Not dequeuing messages, infinite loop coming up.")
+
     # Shut me down with sigterm
     print "New file handling worker started, pid is ", os.getpid(), " send sigterm with 'kill -{} <pid>' or CTRL-C to stop me gracefully.".format(signal.SIGTERM)
     signal.signal(signal.SIGTERM, receiveSigTermSignal)
@@ -582,7 +637,7 @@ def main():
             print "Polling queue..."
             dequeue_messages(cloud_instance_name, account_key)
 
-            if (stopSignal is not None) and (stopSignal == True):
+            if stopSignal == True:
                 print("Stop signal received, aborting polling and checking out.")
                 return
 
