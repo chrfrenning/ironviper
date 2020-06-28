@@ -104,8 +104,8 @@ sed -e "s#BACKEND#$staticurl#g" ./api/proxies.template | tee ./api/proxies.json
 
 # TODO: Update ./api/local.settings.json with InstanceName and StorageAccountKey for local debugging
 
+mkdir tmp
 cd api
-rm ../tmp/api.zip
 zip -r ../tmp/api.zip *
 cd ..
 az functionapp deployment source config-zip -g $rgn -n $rgn --src ./tmp/api.zip
