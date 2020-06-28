@@ -4,20 +4,50 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="styles.css">
+  <!--link rel="stylesheet" href="styles.css"-->
   <title>ironviper</title>
 </head>
 
 <body>
   <main>
     <h1>ironviper</h1>
-    <p>From the APIz: <b id="name">...</b></p>
+    <div id="grid"></div>
   </main>
 
   <script>
     (async function() {
-      let { text } = await( await fetch(`/api/GetStream`)).json();
-      document.querySelector('#name').textContent = text;
+      
+      var html = "";
+      let records = await( await fetch('/api/GetStream')).json();
+      
+      records.forEach( element => {
+
+        console.log('id: ' + element.RowKey._ + " name " + element.name._ + "." + element.ext._);
+
+        if ( element.pvs._ != "null" )
+        {
+          var pvurl;
+          var pvlist = JSON.parse(element.pvs._);
+          pvlist.forEach( url => {
+              if ( url.indexOf('_200.') > 0 )
+              {
+                pvurl = url;
+              }
+          });
+          console.log("Preview url: " + pvurl);
+          
+          html += `<h2>${element.name._}.${element.ext._}</h2><img src="${pvurl}" />`;
+        }
+        else
+        {
+          console.log("Generic file, no preview available.");
+
+          html += `<h2>${element.name._}.${element.ext._}</h2><div>No preview available for this file.</div>`;
+        }
+
+      });
+      
+      document.querySelector('#grid').innerHTML = html;
     }())
   </script>
 </body>
