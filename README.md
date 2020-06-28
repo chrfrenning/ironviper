@@ -64,3 +64,4 @@ I'll use github issues soon to track things that are not working, for now we hav
 1. Handle digital negatives with dcraw (must build imagemagick from source when creating container?)
 1. change from python 2 to 3 for converter? consider at a later point, if we want a smaller container image we may have to forgo python anyhow.
 1. make a clear-all-data.py tool to wipe storage, tables, and queues for fresh start when dev and debug
+1. set a delete lock on the storage account. important data will be stored here, so we don't want unwanted deletes.
