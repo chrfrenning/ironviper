@@ -95,7 +95,11 @@ az functionapp create -n $rgn -g $rgn --storage-account fn$rnd --consumption-pla
 functionsurl=$(az functionapp list -g $rgn | jq -r ".[].hostNames[0]")
 echo "functions_url = \"$staticurl\"" >> ./configuration.toml
 
+# TODO: Push $staticurl onto ./api/proxies.json to refer to correct backend
+# TODO: Update ./api/local.settings.json with InstanceName and StorageAccountKey for local debugging
+
 cd api
+rm ../tmp/api.zip
 zip -r ../tmp/api.zip *
 cd ..
 az functionapp deployment source config-zip -g $rgn -n $rgn --src ./tmp/api.zip
