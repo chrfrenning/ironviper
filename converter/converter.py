@@ -651,8 +651,8 @@ def main():
             if messages_handled > 0:
                 last_message_handled = time.time()
             else:
-                if time.time() - last_message_handled > 60*1: # 10 minutes delay maximum
-                    print "Idle for more than 10 minutes, shutting down if production environment"
+                if time.time() - last_message_handled > 60*5: # 5 minutes delay maximum
+                    print "Idle for more than 5 minutes, shutting down if production environment"
                     if not debugMode:
                         return
                 
