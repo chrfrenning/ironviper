@@ -115,6 +115,17 @@ az functionapp config appsettings set --n $rgn -g $rgn --settings "InstanceName=
 
 # TODO: Setup ACI for converter container image
 
+az acr create -g $rgn --name $rgn --sku Basic
+az acr login --name $rgn
+registryUrl=$(az acr show --n $rgn -g $rgn --query "loginServer" --output tsv)
+echo "registry_url = \"$registryUrl\"" >> ./configuration.toml
+
+docker tag ironviper-converter $registryUrl/ironviper-converter:latest
+
+# Build and push docker image
+docker build -t ironviper-converter ./converter/.
+docker push $registryUrl/ironviper-converter:latest
+
 # TODO: Set up cdn? #notyet #keepcostsatminimum #easytodoyourself
 
 # Download some test files and send them to the system for ingestion
