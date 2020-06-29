@@ -122,9 +122,23 @@ echo "registry_url = \"$registryUrl\"" >> ./configuration.toml
 
 docker tag ironviper-converter $registryUrl/ironviper-converter:latest
 
+# Get registry credentials
+
+az acr update -n $rgn --admin-enabled
+registryUsername=$(az acr credential show -n $rgn --query username --output tsv)
+registryPassword=$(az acr credential show -n $rgn --query passwords[?name==\'password\'].value --output tsv)
+
+echo "registry_username = \"$registryUsername\"" >> ./configuration.toml
+echo "registry_password = \"$registryPassword\"" >> ./configuration.toml
+
 # Build and push docker image
+
 docker build -t ironviper-converter ./converter/.
 docker push $registryUrl/ironviper-converter:latest
+
+# Spin up the primary converter container
+
+az container create -g $rgn -n $rgn-primary-converter --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey
 
 # TODO: Set up cdn? #notyet #keepcostsatminimum #easytodoyourself
 
