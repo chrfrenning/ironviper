@@ -527,6 +527,7 @@ def dequeue_messages(config_instance_name, config_account_key):
     messages = queue_service.receive_messages(messages_per_page=1)
     #messages = queue_service.peek_messages(1) # just for easier debugging
 
+    messages_handled = 0
     for msg in messages:
 
         try:
@@ -542,9 +543,10 @@ def dequeue_messages(config_instance_name, config_account_key):
                 print "Debug mode, not removing message from queue."
 
             print "Message handled in {} seconds.".format(time.time()-start)
+            messages_handled += 1
 
             if stopSignal == True:
-                return
+                return messages_handled
 
         except Exception as ex:
             print "Error handling message ({})".format(msg.content)
@@ -553,6 +555,8 @@ def dequeue_messages(config_instance_name, config_account_key):
         finally:
             # something on every iteration?
             f = 1
+    
+    return messages_handled
 
 
 
@@ -632,14 +636,26 @@ def main():
     cloud_instance_name, account_key = load_configuration()
 
     # Query the queue for new files arrived
+    last_message_handled = time.time()
+
     try:
         while True:
             print "Polling queue..."
-            dequeue_messages(cloud_instance_name, account_key)
+            messages_handled = dequeue_messages(cloud_instance_name, account_key)
 
             if stopSignal == True:
                 print("Stop signal received, aborting polling and checking out.")
                 return
+
+            # if idle for > X minutes, return to shut down the container
+            if messages_handled > 0:
+                last_message_handled = time.time()
+            else:
+                if time.time() - last_message_handled > 60*1: # 10 minutes delay maximum
+                    print "Idle for more than 10 minutes, shutting down if production environment"
+                    if not debugMode:
+                        return
+                
 
             # Wait a random time before checking again
             time.sleep( random.randrange(1,3) )
