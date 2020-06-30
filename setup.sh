@@ -120,8 +120,6 @@ az acr login --name $rgn
 registryUrl=$(az acr show --n $rgn -g $rgn --query "loginServer" --output tsv)
 echo "registry_url = \"$registryUrl\"" >> ./configuration.toml
 
-docker tag ironviper-converter $registryUrl/ironviper-converter:latest
-
 # Get registry credentials
 
 az acr update -n $rgn --admin-enabled
@@ -134,6 +132,8 @@ echo "registry_password = \"$registryPassword\"" >> ./configuration.toml
 # Build and push docker image
 
 docker build -t ironviper-converter ./converter/.
+
+docker tag ironviper-converter $registryUrl/ironviper-converter:latest
 docker push $registryUrl/ironviper-converter:latest
 
 # Spin up the primary converter container
@@ -173,5 +173,5 @@ else
 fi
 
 
-echo "Done. See new resource group in azure: $rgn"
+echo "Done.\nSee new resource group in azure: $rgn\nBrowse website: $functionsurl"
 echo "(Not quite there yet, but some stuff working, investigate and have fun - or try again in a few cycles...)"
