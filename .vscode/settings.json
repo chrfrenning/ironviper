@@ -21,4 +21,7 @@
         "baseUri": "/api/", //from where you want to proxy. 
         "proxyUri": "http://localhost:7071/api/" //the actual url.
     },
+    "liveServer.settings.mount:" [
+        ["/nah", "/nowhere"]
+    ]
 }
