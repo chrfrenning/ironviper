@@ -1,3 +1,4 @@
+#!/usr/bin/env python2.7
 # For developers actively writing code, this script will push all changes
 # to their private instance
 
