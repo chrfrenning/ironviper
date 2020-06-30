@@ -32,7 +32,7 @@ location=centralus
 mkdir $rgn
 
 echo -e "${Y}Starting setup at $(date)${NC}.\nSee setup.log for verbose log info."
-echo -e "${G}Version: 2020-06-30-2"
+echo -e "${G}Version: 2020-06-30-3"
 echo "Starting setup at $(date)." > ./$rgn/setup.log
 
 
