@@ -18,6 +18,15 @@ NC='\033[0m' # No Color
 
 
 
+# Create random number for resource creation
+# Keeping this at the beginning of the script to make basic customization easy
+
+rnd=$(cut -c1-6 /proc/sys/kernel/random/uuid)
+rgn=ironviper00$rnd
+location=centralus
+
+
+
 # Create log file
 
 mkdir $rgn
@@ -25,15 +34,6 @@ mkdir $rgn
 echo -e "${Y}Starting setup at $(date)${NC}.\nSee setup.log for verbose log info."
 echo -e "${G}Version: 2020-06-30-2"
 echo "Starting setup at $(date)." > ./$rgn/setup.log
-
-
-
-# Create random number for resource creation
-# Keeping this at the beginning of the script to make basic customization easy
-
-rnd=$(cut -c1-6 /proc/sys/kernel/random/uuid)
-rgn=ironviper00$rnd
-location=centralus
 
 
 
