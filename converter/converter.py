@@ -1,3 +1,5 @@
+#!/usr/bin/env python2.7
+
 import sys
 import json
 import toml
@@ -24,6 +26,7 @@ from azure.cosmosdb.table.models import Entity
 #
 # Global variables (hell yeah)
 
+version = "202006300950"
 stopSignal = False
 debugMode = False
 debugDisableMessageDeque = False
@@ -578,7 +581,9 @@ def load_configuration():
     cloud_instance_name = None
     account_key = None
 
-    if debugMode:
+    if os.getenv('INSTANCE_NAME', 'n/a') == 'n/a':
+        print "Container envirnoment variable not found, trying to load settings from config file"
+
         # Load config to know where to talk
         configuration_file_name = os.path.dirname(os.path.abspath(__file__)) + "/../configuration.toml"
         configuration = toml.load(configuration_file_name)
@@ -645,23 +650,23 @@ def main():
 
             if stopSignal == True:
                 print("Stop signal received, aborting polling and checking out.")
-                return
+                exit(0)
 
             # if idle for > X minutes, return to shut down the container
             if messages_handled > 0:
                 last_message_handled = time.time()
             else:
-                if time.time() - last_message_handled > 60*5: # 5 minutes delay maximum
-                    print "Idle for more than 5 minutes, shutting down if production environment"
-                    if not debugMode:
-                        return
-                
+                max_seconds = 60*2
+                if time.time() - last_message_handled > max_seconds and not debugMode: # 5 minutes delay maximum
+                    print "Idle for more than {} minutes, shutting down converter process".format(max_seconds/60)
+                    exit(0)
 
             # Wait a random time before checking again
             time.sleep( random.randrange(1,3) )
 
     except Exception as ex:
         print "An error occurred during message management. " + ex.message
+        exit(1)
 
 
 
