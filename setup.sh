@@ -20,9 +20,11 @@ NC='\033[0m' # No Color
 
 # Create log file
 
+mkdir $rgn
+
 echo -e "${Y}Starting setup at $(date)${NC}.\nSee setup.log for verbose log info."
-echo -e "${G}Version: 2020-06-30"
-echo "Starting setup at $(date)." > setup.log
+echo -e "${G}Version: 2020-06-30-2"
+echo "Starting setup at $(date)." > ./$rgn/setup.log
 
 
 
@@ -50,7 +52,7 @@ location=centralus
 # Get the code, clone git repo https://github.com/chrfrenning/ironviper.git
 
 echo -e "${Y}Cloning code from GitHub...${NC}"
-git clone https://github.com/chrfrenning/ironviper.git $rgn >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+git clone https://github.com/chrfrenning/ironviper.git $rgn >> ./$rgn/setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 cd $rgn
 
 
@@ -180,14 +182,14 @@ az functionapp config appsettings set --n $rgn -g $rgn --settings InstanceName=$
 
 echo -e "${Y}Creating container registry for background tasks...${NC}"
 
-az acr create -g $rgn --name $rgn --sku Basic >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
-az acr login --name $rgn >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+az acr create -g $rgn --name $rgn --sku Basic # >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+az acr login --name $rgn # >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 registryUrl=$(az acr show --n $rgn -g $rgn --query "loginServer" --output tsv)
 echo "registry_url = \"$registryUrl\"" >> ./configuration.toml
 
 # Get registry credentials
 
-az acr update -n $rgn --admin-enabled >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+az acr update -n $rgn --admin-enabled # >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 registryUsername=$(az acr credential show -n $rgn --query username --output tsv)
 registryPassword=$(az acr credential show -n $rgn --query passwords[?name==\'password\'].value --output tsv)
 
@@ -199,7 +201,7 @@ echo "registry_password = \"$registryPassword\"" >> ./configuration.toml
 # Build and push docker image
 
 echo -e "${Y}Building and pushing converter container image...${NC}"
-az acr build --registry ironviper007a09dd.azurecr.io --image ironviper-converter:latest ./converter/ >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+az acr build --registry $rgn --image ironviper-converter:latest ./converter/ # >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 
 
 
