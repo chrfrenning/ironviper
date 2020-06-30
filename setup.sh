@@ -29,11 +29,8 @@ location=centralus
 
 # Create log file
 
-mkdir $rgn
-
 echo -e "${Y}Starting setup at $(date)${NC}.\nSee setup.log for verbose log info."
-echo -e "${G}Version: 2020-06-30-3"
-echo "Starting setup at $(date)." > ./$rgn/setup.log
+echo -e "${G}Version: 2020-06-30-4"
 
 
 
@@ -52,12 +49,14 @@ echo "Starting setup at $(date)." > ./$rgn/setup.log
 # Get the code, clone git repo https://github.com/chrfrenning/ironviper.git
 
 echo -e "${Y}Cloning code from GitHub...${NC}"
-git clone https://github.com/chrfrenning/ironviper.git $rgn >> ./$rgn/setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+git clone https://github.com/chrfrenning/ironviper.git $rgn || echo -e "${R}Failed.${NC}"
 cd $rgn
 
 
 
 # Time to get going and do some real stuff!
+
+echo "Starting setup at $(date)." > setup.log
 
 echo -e "${Y}Creating resource group...${NC}"
 az group create --location $location --name $rgn >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
