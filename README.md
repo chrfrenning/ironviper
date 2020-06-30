@@ -55,13 +55,13 @@ I'll use github issues soon to track things that are not working, for now we hav
 1. ~Ingest test files to storage at setup~ and automate (massive) test file uploads (you can upload a single file with upload.py)
 1. ~Create file records for unknown file types, treat anything not explicitly handled as generic file (no metadata, preview, etc)~
 1. ~Configure azure functions before deployment, need instance name and keys, plus backend for static serving~
+1. ~Deploy conversion container.~
 1. Infrastructure to scale converter containers, from 0 to massive (focus on cost-optimization, goal is 0 cost apart from storage when no activity)
 1. Handle blob deletions. Don't know how yet, what is sensible? Effectively external deletions, should we respect and delete everything, or should we keep the record and indicate a broken link? #thinkingneeded
 1. Calculate perceptual image hashes for de-dupe and extract key metadata for heuristics dedupe process.
-
-1. Web frontend to display ingested files. Headache: choosing frontend framework, react, vue, angular???
+1. ~Scaffold web frontend to display ingested files.~ Headache: choosing frontend framework, react, vue, angular???
 1. Split setup.sh into 1) default provision in azure only (it-pro mode) 2) and optional setup local dev and debug environment (pro-dev mode)
 1. Handle digital negatives with dcraw (must build imagemagick from source when creating container?)
 1. change from python 2 to 3 for converter? consider at a later point, if we want a smaller container image we may have to forgo python anyhow.
-1. make a clear-all-data.py tool to wipe storage, tables, and queues for fresh start when dev and debug
-1. set a delete lock on the storage account. important data will be stored here, so we don't want unwanted deletes.
+1. make a clear-all-data.py tool to wipe storage, tables, and queues for fresh start when dev and debug. Use ARM tag Development: True to authorize this script to run.
+1. set a delete lock on the storage account. important data will be stored here, so we don't want unwanted deletes. 
