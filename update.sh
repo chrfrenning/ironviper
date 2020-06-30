@@ -54,11 +54,11 @@ mkdir tmp >> update.log  2>&1
 rm ./tmp/api.zip >> update.log 2>&1
 
 cd api
-zip -r ../tmp/api.zip * -x "./node_modules/*" >> update.log 2>&1  || echo -e "${R}Failed.${NC}"
+zip -r ../tmp/api.zip * -x "./node_modules/*" >> ../update.log 2>&1  || echo -e "${R}Failed.${NC}"
 cd ..
 
 az functionapp deployment source config-zip -g $rgn -n $rgn --src ./tmp/api.zip >> update.log 2>&1 || echo -e "${R}Failed.${NC}"
-az functionapp config appsettings set --n $rgn -g $rgn --settings "InstanceName=$rgn;StorageAccountKey=$storageKey" >> update.log 2>&1 || echo -e "${R}Failed.${NC}"
+az functionapp config appsettings set --n $rgn -g $rgn --settings InstanceName=$rgn StorageAccountKey=$storageKey >> update.log 2>&1 || echo -e "${R}Failed.${NC}"
 
 
 
