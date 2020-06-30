@@ -20,7 +20,8 @@ NC='\033[0m' # No Color
 
 # Create log file
 
-echo -e "${G}Starting setup at $(date)${NC}.\nSee setup.log for verbose log info."
+echo -e "${Y}Starting setup at $(date)${NC}.\nSee setup.log for verbose log info."
+echo -e "${G}Version: 2020-06-30"
 echo "Starting setup at $(date)." > setup.log
 
 
