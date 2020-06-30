@@ -11,11 +11,28 @@
 # TODO: Split resource group name and resource name vars into two separate vars
 # Note: Adding random part to resource and rg names to hope for global uniqueness
 
+Y='\033[1;33m'
+R='\033[0;31m'
+G='\033[0;32m'
+NC='\033[0m' # No Color
+
+
+
+# Create log file
+
+echo -e "${G}Starting setup at $(date)${NC}.\nSee update.log for verbose log info."
+echo "Starting setup at $(date)." > setup.log
+
+
+
 # Create random number for resource creation
 # Keeping this at the beginning of the script to make basic customization easy
+
 rnd=$(cut -c1-6 /proc/sys/kernel/random/uuid)
 rgn=ironviper00$rnd
 location=centralus
+
+
 
 # TODO: Ensure we have tools we need, e.g. jq and python
 # sudo apt install jq # note, script intended for azure shell, has jq and python
@@ -27,22 +44,37 @@ location=centralus
 # az provider register --namespace Microsoft.DocumentDB # dont need yet
 # az provider register --namespace Microsoft.CognitiveServices # dont need yet
 
+
+
 # Get the code, clone git repo https://github.com/chrfrenning/ironviper.git
-git clone https://github.com/chrfrenning/ironviper.git $rgn
+
+echo -e "${Y}Cloning code from GitHub...${NC}"
+git clone https://github.com/chrfrenning/ironviper.git $rgn >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 cd $rgn
 
+
+
 # Time to get going and do some real stuff!
-echo Deploying ironviper resources
+
+echo -e "${Y}Creating resource group...${NC}"
 az group create --location $location --name $rgn
 
 # Save resource group name for app
 echo "instance_name = \"$rgn\"" > ./configuration.toml
 echo "resource_group = \"$rgn\"" >> ./configuration.toml
 
+
+
 # Create keyvault for secrets
+
+echo -e "${Y}Creating KeyVault for secrets...${NC}"
 az keyvault create -n $rgn -g $rgn --location $location
 
+
+
 # Create service principal
+
+echo -e "${Y}Creating service principal to access keys and secrets...${NC}"
 az ad sp create-for-rbac -n "http://$rgn" --sdk-auth > ./serviceprincipal.json
 
 clientId=$(cat ./serviceprincipal.json | jq -r ".clientId")
@@ -56,8 +88,12 @@ echo "tenant_id = \"$tenantId\"" >> ./configuration.toml
 
 az keyvault set-policy -n $rgn --spn $clientId --secret-permissions get list --key-permissions encrypt decrypt get list
 
+
+
 # Create storage account
 # This is used to host a static website with the altizator.js script
+
+echo -e "${Y}Creating storage account...${NC}"
 az storage account create -n $rgn -g $rgn --sku "Standard_LRS" --location $location --kind "StorageV2" --access-tier "Hot"
 
 storageKey=$(az storage account keys list -n $rgn -g $rgn --query "[?keyName=='key1'].value" -o tsv)
@@ -70,20 +106,34 @@ az storage queue create --account-name $rgn --name "extract-queue" --account-key
 az storage table create --account-name $rgn --name "files" --account-key $storageKey
 az storage table create --account-name $rgn --name "orphans" --account-key $storageKey
 
+
+
 # Hook up storage events to the extract-queue
+
+echo -e "${Y}Hooking up events for new files in storage...${NC}"
+
 storageId=$(az storage account show -n $rgn -g $rgn --query id --output tsv)
 queueId=$storageId/queueservices/default/queues/extract-queue
 subjectFilter="/blobServices/default/containers/file-store/blobs/"
 az eventgrid event-subscription create --name "new-files-to-extractors" --source-resource-id $storageId --subject-begins-with $subjectFilter --endpoint-type "storagequeue" --endpoint $queueId
 
-# TODO: Build and push static webfrontend to $web in storage account
+
+
+# Build and push static webfrontend to $web in storage account
+
+echo -e "${Y}Creating static website and pushes source code...${NC}"
 
 az storage blob service-properties update --account-name $rgn --account-key $storageKey --static-website --404-document 404.html --index-document index.html
 az storage blob upload-batch -s ./frontend -d '$web' --account-name $rgn --account-key $storageKey
 staticurl=$(az storage account show -n $rgn -g $rgn --query "primaryEndpoints.web" --output tsv)
 echo "static_url = \"$staticurl\"" >> ./configuration.toml
 
-# TODO: Set up functions on consumption plan and push api
+
+
+# Set up functions on consumption plan and push api
+
+echo -e "${Y}Creating API in Azure Functions...${NC}"
+
 az storage account create -n fn$rnd -l $location -g $rgn --sku Standard_LRS --kind "StorageV2" # not sure if we need a separate storage account?
 az resource create -g $rgn -n $rgn --resource-type "Microsoft.Insights/components" --properties {\"Application_Type\":\"web\"}
 
@@ -102,7 +152,11 @@ sed -e "s#INAME#$rgn#g" -e "s#SKEY#$storageKey#g" ./api/local.settings.template 
 
 sed -e "s#BACKEND#$staticurl#g" ./api/proxies.template | tee ./api/proxies.json
 
-# TODO: Update ./api/local.settings.json with InstanceName and StorageAccountKey for local debugging
+
+
+# Push api code to server
+
+echo -e "${Y}Pushing API code to Azure Functions...${NC}"
 
 mkdir tmp
 cd api
@@ -113,7 +167,11 @@ az functionapp deployment source config-zip -g $rgn -n $rgn --src ./tmp/api.zip
 az functionapp config appsettings set --n $rgn -g $rgn --settings "InstanceName=$rgn;StorageAccountKey=$storageKey"
 # TODO: Make function app get storage key from keyvault instead of configuration
 
-# TODO: Setup ACI for converter container image
+
+
+# Setup ACI for converter container image
+
+echo -e "${Y}Creating container registry for background tasks...${NC}"
 
 az acr create -g $rgn --name $rgn --sku Basic
 az acr login --name $rgn
@@ -129,29 +187,58 @@ registryPassword=$(az acr credential show -n $rgn --query passwords[?name==\'pas
 echo "registry_username = \"$registryUsername\"" >> ./configuration.toml
 echo "registry_password = \"$registryPassword\"" >> ./configuration.toml
 
+
+
 # Build and push docker image
 
+echo -e "${Y}Building converter docker image...${NC}"
 docker build -t ironviper-converter ./converter/.
-
 docker tag ironviper-converter $registryUrl/ironviper-converter:latest
+
+echo -e "${Y}Pushing container image to registry...${NC}"
 docker push $registryUrl/ironviper-converter:latest
+
+
 
 # Spin up the primary converter container
 
-az container create -g $rgn -n $rgn-primary-converter --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey
+echo -e "${Y}Starting container instances...${NC}"
+
+az container create -g $rgn -n $rgn-primary-converter --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey
+
+az container create -g $rgn -n $rgn-converter-09 --no-wait --cpu 1 --memory 3 --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey
+az container create -g $rgn -n $rgn-converter-08 --no-wait --cpu 1 --memory 3 --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey
+az container create -g $rgn -n $rgn-converter-07 --no-wait --cpu 1 --memory 3 --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey
+az container create -g $rgn -n $rgn-converter-06 --no-wait --cpu 1 --memory 3 --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey
+az container create -g $rgn -n $rgn-converter-05 --no-wait --cpu 1 --memory 3 --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey
+az container create -g $rgn -n $rgn-converter-04 --no-wait --cpu 1 --memory 3 --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey
+az container create -g $rgn -n $rgn-converter-03 --no-wait --cpu 1 --memory 3 --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey
+az container create -g $rgn -n $rgn-converter-02 --no-wait --cpu 1 --memory 3 --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey
+az container create -g $rgn -n $rgn-converter-01 --no-wait --cpu 1 --memory 3 --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey
+az container create -g $rgn -n $rgn-converter-00 --cpu 1 --memory 3 --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey
+
+
 
 # TODO: Set up cdn? #notyet #keepcostsatminimum #easytodoyourself
 
+
+
 # Download some test files and send them to the system for ingestion
+
+echo -e "${Y}Downloading test files...${NC}"
 azcopy copy https://chphno.blob.core.windows.net/ironviper-testfiles/ ./tmp --recursive # standard sample file collection
+
+echo -e "${Y}Uploading test files to check system...${NC}"
 for f in ./tmp/ironviper-testfiles/*; do python ./tools/upload.py $f; done # push all files into the system
+
+
 
 # #####################################################################
 # 
 # Optionally setup development environment on local instance
 #
 
-if [ "$1" = "--development" ]; then
+if [ "$1" -eq "--development" ]; then
 
     echo "--development set, prepping this environ for development on ironviper"
     echo "note this will store sensitive info on your computer, keep it safe (configuration.toml, ) keys safe"
@@ -169,9 +256,9 @@ if [ "$1" = "--development" ]; then
     # TODO: Build dcraw, ufraw-batch, exiftool, imagemagick
     # TODO: Write from configuration to /frontend/local.settings.json for easier debugging, we need instancename and storagekey
 else
-    rm -rf ./$rgn
+    # rm -rf ./$rgn
 fi
 
 
-echo "Done.\nSee new resource group in azure: $rgn\nBrowse website: $functionsurl"
-echo "(Not quite there yet, but some stuff working, investigate and have fun - or try again in a few cycles...)"
+echo -e "${G}Done.\nSee new resource group in azure: $rgn\nBrowse website: $functionsurl${NC}"
+echo -e "${NC}(Note: We're not quite finished yet, but some stuff working, investigate and have fun - or try again in a few cycles...)${NC}"

@@ -1,3 +1,5 @@
 configuration.toml
 serviceprincipal.json
 tmp/
+setup.log
+update.log
