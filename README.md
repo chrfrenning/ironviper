@@ -43,7 +43,7 @@ deploying and running the stuff yourself.
 I'll use github issues soon to track things that are not working, for now we have this list
 
 1. Digital camera images are not auto-rotated
-1. Error handling, need mechanism to avoid orphaned trouble files, both masters and previews can be orphaned today
+1. Error handling, need mechanism to avoid orphaned trouble files, ~both masters and~ previews can be orphaned today
 1. Code consistency is like... it took four hours to write #needscleanup
 1. Tons of stuff is missing
 
