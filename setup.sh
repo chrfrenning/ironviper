@@ -69,14 +69,14 @@ echo "resource_group = \"$rgn\"" >> ./configuration.toml
 
 # Create keyvault for secrets
 
-echo -e "${Y}Creating KeyVault for secrets...${NC}"
+echo -e "${Y}Creating vault for secrets...${NC}"
 az keyvault create -n $rgn -g $rgn --location $location >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 
 
 
 # Create service principal
 
-echo -e "${Y}Creating service principal to access keys and secrets...${NC}"
+echo -e "${Y}Creating service principal to access vault...${NC}"
 az ad sp create-for-rbac -n "http://$rgn" --sdk-auth > ./serviceprincipal.json
 
 clientId=$(cat ./serviceprincipal.json | jq -r ".clientId")
@@ -95,7 +95,7 @@ az keyvault set-policy -n $rgn --spn $clientId --secret-permissions get list --k
 # Create storage account
 # This is used to host a static website with the altizator.js script
 
-echo -e "${Y}Creating storage account...${NC}"
+echo -e "${Y}Creating storage...${NC}"
 az storage account create -n $rgn -g $rgn --sku "Standard_LRS" --location $location --kind "StorageV2" --access-tier "Hot" >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 
 storageKey=$(az storage account keys list -n $rgn -g $rgn --query "[?keyName=='key1'].value" -o tsv)
@@ -112,7 +112,7 @@ az storage table create --account-name $rgn --name "orphans" --account-key $stor
 
 # Hook up storage events to the extract-queue
 
-echo -e "${Y}Hooking up events for new files in storage...${NC}"
+echo -e "${Y}Hooking up file detection events...${NC}"
 
 storageId=$(az storage account show -n $rgn -g $rgn --query id --output tsv)
 queueId=$storageId/queueservices/default/queues/extract-queue
@@ -123,7 +123,7 @@ az eventgrid event-subscription create --name "new-files-to-extractors" --source
 
 # Build and push static webfrontend to $web in storage account
 
-echo -e "${Y}Creating static website and pushes source code...${NC}"
+echo -e "${Y}Creating static website and pushing code...${NC}"
 
 az storage blob service-properties update --account-name $rgn --account-key $storageKey --static-website --404-document 404.html --index-document index.html >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 az storage blob upload-batch -s ./frontend -d '$web' --account-name $rgn --account-key $storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
@@ -134,7 +134,7 @@ echo "static_url = \"$staticurl\"" >> ./configuration.toml
 
 # Set up functions on consumption plan and push api
 
-echo -e "${Y}Creating serverless API using Azure Functions...${NC}"
+echo -e "${Y}Creating functionapp for serverless API...${NC}"
 
 az storage account create -n fn$rnd -l $location -g $rgn --sku Standard_LRS --kind "StorageV2"  >> setup.log 2>&1 || echo -e "${R}Failed.${NC}" # not sure if we need a separate storage account?
 az resource create -g $rgn -n $rgn --resource-type "Microsoft.Insights/components" --properties {\"Application_Type\":\"web\"} >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
@@ -158,7 +158,7 @@ sed -e "s#BACKEND#$staticurl#g" ./api/proxies.template > ./api/proxies.json
 
 # Push api code to server
 
-echo -e "${Y}Pushing API code to Azure Functions...${NC}"
+echo -e "${Y}Package and push API code...${NC}"
 
 mkdir tmp
 cd api
@@ -171,7 +171,7 @@ az functionapp deployment source config-zip -g $rgn -n $rgn --src ./tmp/api.zip 
 # Push settings to azure functions
 # TODO: Make function app get storage key from keyvault instead of configuration
 
-echo -e "${Y}Pushing API code to Azure Functions...${NC}"
+echo -e "${Y}Pushing settings to function app...${NC}"
 az functionapp config appsettings set --n $rgn -g $rgn --settings InstanceName=$rgn StorageAccountKey=$storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 
 
@@ -182,7 +182,7 @@ az functionapp config appsettings set --n $rgn -g $rgn --settings InstanceName=$
 echo -e "${Y}Creating container registry for background tasks...${NC}"
 
 az acr create -g $rgn --name $rgn --sku Basic # >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
-az acr login --name $rgn # >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+#az acr login --name $rgn # >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 registryUrl=$(az acr show --n $rgn -g $rgn --query "loginServer" --output tsv)
 echo "registry_url = \"$registryUrl\"" >> ./configuration.toml
 
@@ -231,10 +231,12 @@ az container create -g $rgn -n $rgn-converter-00 --cpu 1 --memory 3 --restart-po
 # Download some test files and send them to the system for ingestion
 
 echo -e "${Y}Downloading test files...${NC}"
-azcopy copy https://chphno.blob.core.windows.net/ironviper-testfiles/ ./tmp --recursive  >> setup.log 2>&1 || echo -e "${R}Failed.${NC}" # standard sample file collection
+azcopy copy https://chphno.blob.core.windows.net/ironviper-testfiles/ ./tmp --recursive # standard sample file collection
+
+# Ingest test files into the file-store
 
 echo -e "${Y}Uploading test files to check system...${NC}"
-for f in ./tmp/ironviper-testfiles/*; do python ./tools/upload.py $f; done # push all files into the system
+az storage blob upload-batch -s ./tmp/ironviper-testfiles -d 'file-store' --account-name $rgn --account-key $storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 
 
 
