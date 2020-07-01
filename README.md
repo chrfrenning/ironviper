@@ -9,13 +9,7 @@ Note! this project is at very early stage, not much functioning yet. Want the ni
 
 ## status
 
-Current status is that resource provisioning (deploy_azure.sh) is working, and manual uploads of files to 'file-store' container will result in thumbs and previews generated if you run the converter container somewhere. #notforthefaintofheart
-
-
-## can i test this somehow?
-
-Once more of the project is done, I will set up a public test site so that you can see what this is about without
-deploying and running the stuff yourself.
+Current status is that resource provisioning (deploy_azure.sh) is working, and manual uploads of files to 'file-store' container will result in thumbs and previews generated. a very simple web interface will display thumbnails.
 
 
 ## how to get started
@@ -36,16 +30,6 @@ deploying and running the stuff yourself.
 1. Run 'python ./converter/run_docker.py' to start a container with the converter
 1. Upload some files using 'python tools/upload.py'
 1. Inspect the files table, pv-store to see output
-
-
-### issues
-
-I'll use github issues soon to track things that are not working, for now we have this list
-
-1. Digital camera images are not auto-rotated
-1. Error handling, need mechanism to avoid orphaned trouble files, ~both masters and~ previews can be orphaned today
-1. Code consistency is like... it took four hours to write #needscleanup
-1. Tons of stuff is missing
 
 
 ### plan
