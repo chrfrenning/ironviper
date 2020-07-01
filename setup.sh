@@ -65,6 +65,9 @@ az group create --location $location --name $rgn >> setup.log 2>&1 || echo -e "$
 echo "instance_name = \"$rgn\"" > ./configuration.toml
 echo "resource_group = \"$rgn\"" >> ./configuration.toml
 
+subscriptionId=$(az account show | jq -r ".id")
+echo "subscription_id = \"$subscriptionId\"" >> ./configuration.toml
+
 
 
 # Create keyvault for secrets
@@ -88,7 +91,18 @@ echo "client_secret = \"$clientSecret\"" >> ./configuration.toml
 tenantId=$(cat ./serviceprincipal.json | jq -r ".tenantId")
 echo "tenant_id = \"$tenantId\"" >> ./configuration.toml
 
+
+# Give access to service principal to read from key vault
+
+echo -e "${Y}Granting access to read from vault...${NC}"
 az keyvault set-policy -n $rgn --spn $clientId --secret-permissions get list --key-permissions encrypt decrypt get list >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+
+
+# Give access to service principal to resource group
+
+echo -e "${Y}Granting access to control resources...${NC}"
+spObjectId=$(az ad sp list --display-name $rgn --query [].objectId --output tsv)
+az role assignment create --role Contributor --assignee-object-id $spObjectId --assignee-principal-type ServicePrincipal --resource-group $rgn >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 
 
 
