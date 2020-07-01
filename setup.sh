@@ -158,12 +158,21 @@ sed -e "s#BACKEND#$staticurl#g" ./api/proxies.template > ./api/proxies.json
 
 # Push api code to server
 
-echo -e "${Y}Package and push API code...${NC}"
-
-mkdir tmp
 cd api
+
+echo -e "${Y}Retrieving dependencies...${NC}"
+npm install >> ../setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+
+
+echo -e "${Y}Package api code...${NC}"
+
+mkdir ../tmp
 zip -r ../tmp/api.zip * >> ../setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 cd ..
+
+
+echo -e "${Y}Deploying api code...${NC}"
+
 az functionapp deployment source config-zip -g $rgn -n $rgn --src ./tmp/api.zip >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 
 
