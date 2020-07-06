@@ -162,7 +162,7 @@ functionsurl=$(az functionapp list -g $rgn | jq -r ".[].hostNames[0]")
 echo "functions_url = \"$staticurl\"" >> ./configuration.toml
 
 # Create ./api/local.settings.json file with correct cfg parameters
-sed -e "s#INAME#$rgn#g" -e "s#SKEY#$storageKey#g" ./api/local.settings.template > ./api/local.settings.json
+sed -e "s#INAME#$rgn#g" -e "s#SKEY#$storageKey#g" -e "s#CID#$clientId#g" -e "s#CSEC#$clientSecret#g" -e "s#TENID#$tenantId#g" -e "s#SUBID#$subscriptionId#g" ./api/local.settings.template > ./api/local.settings.json
 
 # Push $staticurl onto ./api/proxies.json to refer to correct backend
 
@@ -195,7 +195,7 @@ az functionapp deployment source config-zip -g $rgn -n $rgn --src ./tmp/api.zip 
 # TODO: Make function app get storage key from keyvault instead of configuration
 
 echo -e "${Y}Pushing settings to function app...${NC}"
-az functionapp config appsettings set --n $rgn -g $rgn --settings InstanceName=$rgn StorageAccountKey=$storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+az functionapp config appsettings set --n $rgn -g $rgn --settings InstanceName=$rgn StorageAccountKey=$storageKey ClientId=$clientId ClientSecret=$clientSecret TenantId=$tenantId SubscriptionId=$subscriptionId >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 
 
 

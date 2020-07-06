@@ -5,6 +5,14 @@ import sys
 import requests
 import json
 
+# #####################################################################
+#
+# Increases active converter containers by one
+#
+# Enumerates all containers in the resource group, finds first
+# with state Terminated and restarts it
+#
+
 management_url = "https://management.azure.com/"
 
 

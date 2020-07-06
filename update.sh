@@ -32,6 +32,10 @@ registryUsername=$(./tools/getsetting.py registry_username)
 registryPassword=$(./tools/getsetting.py registry_password)
 staticurl=$(./tools/getsetting.py static_url)
 functionsurl=$(./tools/getsetting.py functions_url)
+clientId=$(./tools/getsetting.py client_id)
+clientSecret=$(./tools/getsetting.py client_secret)
+tenantId=$(./tools/getsetting.py tenant_id)
+subscriptionId=$(./tools/getsetting.py subscription_id)
 
 echo -e "instance: $rgn\nstoragekey: $storageKey\nregistry: $registryUrl\nusr: $registryUsername\npwd: $registryPassword\nstaticurl: $staticurl\nfunctionsurl: $functionsurl\n" >> update.log
 
@@ -58,7 +62,7 @@ zip -r ../tmp/api.zip * >> ../update.log 2>&1  || echo -e "${R}Failed.${NC}"
 cd ..
 
 az functionapp deployment source config-zip -g $rgn -n $rgn --src ./tmp/api.zip >> update.log 2>&1 || echo -e "${R}Failed.${NC}"
-az functionapp config appsettings set --n $rgn -g $rgn --settings InstanceName=$rgn StorageAccountKey=$storageKey >> update.log 2>&1 || echo -e "${R}Failed.${NC}"
+az functionapp config appsettings set --n $rgn -g $rgn --settings InstanceName=$rgn StorageAccountKey=$storageKey ClientId=$clientId ClientSecret=$clientSecret TenantId=$tenantId SubscriptionId=$subscriptionId >> update.log 2>&1 || echo -e "${R}Failed.${NC}"
 
 
 
