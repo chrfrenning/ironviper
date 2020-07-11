@@ -106,6 +106,16 @@ function getAvailableInstances(instances)
 
 module.exports = async function (context, myTimer) 
 {
+    // check if we're enabled
+
+    if ( process.env.ConverterDisabled && process.env['ConverterDisabled'] == "true" )
+    {
+        context.log('Timer ran, spinning converters is disabled by config.');
+        return;
+    }
+
+    // go ahead and check if we should run some containers
+
     var timeStamp = new Date().toISOString();
     
     if (myTimer.isPastDue)

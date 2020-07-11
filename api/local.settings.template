@@ -8,6 +8,7 @@
     "ClientId": "CID",
     "ClientSecret": "CSEC",
     "TenantId": "TENID",
-    "SubscriptionId": "SUBID"
+    "SubscriptionId": "SUBID",
+    "AZURE_FUNCTION_PROXY_DISABLE_LOCAL_CALL": "true"
   }
 }
