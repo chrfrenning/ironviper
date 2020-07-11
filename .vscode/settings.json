@@ -17,7 +17,7 @@
     ],
     "liveServer.settings.donotShowInfoMsg" : true,
     "liveServer.settings.proxy": {
-        "enable": true, //set it true to enable the feature.
+        "enable": false, //set it true to enable the feature.
         "baseUri": "/api/", //from where you want to proxy. 
         "proxyUri": "http://localhost:7071/api/" //the actual url.
     },
