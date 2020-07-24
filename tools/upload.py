@@ -58,6 +58,21 @@ original_file_time = datetime.datetime.utcfromtimestamp(os.path.getmtime(filenam
 
 #print original_file_name, original_file_time
 
+# convert relative path to server form
+# TODO: Ensure paths are url safe, replace illegal chars, separators, whitespace
+
+destination_path = head.replace("\\", "/") # windows notation change
+if len(destination_path) > 0:
+    if destination_path[0] == '.': # remove ./ prefix
+        destination_path = destination_path[2:]
+    elif destination_path[0] == '/':
+        destination_path = destination_path[1:]
+        
+    destination_path = destination_path + '/'
+
+print "Destination path: " + destination_path
+
+
 # Create checksums
 
 md5, sha256 = create_file_checksums(filename)
@@ -72,4 +87,4 @@ destination_filename = uuid.uuid4().hex + filename[filename.rfind('.'):]
 
 
 print "Uploading ", filename, " as ", destination_filename
-os.system("az storage blob upload -f '{}' -c file-store -n '{}' --account-name {} --account-key {} --metadata 'ORIGINAL_FILENAME={}' 'ORIGINAL_FILETIME={}' 'SOURCE_MD5={}' 'SOURCE_SHA256={}'".format(filename, destination_filename, account_name, account_key, original_file_name, original_file_time, md5, sha256))
+os.system("az storage blob upload -f '{}' -c file-store -n '{}{}' --account-name {} --account-key {} --metadata 'ORIGINAL_FILENAME={}' 'ORIGINAL_FILETIME={}' 'SOURCE_MD5={}' 'SOURCE_SHA256={}'".format(filename, destination_path, destination_filename, account_name, account_key, original_file_name, original_file_time, md5, sha256))
