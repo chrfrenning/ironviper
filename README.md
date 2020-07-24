@@ -36,9 +36,10 @@ Current status is that resource provisioning (deploy_azure.sh) is working, and m
 
 ### plan
 
-1. Read metadata (org filename, org modified time, client generated hashes) when ingesting files
+1. Split static website and api; debugging not easily viable with current setup
+1. Read metadata from uploader when ingesting files (org filename, org modified time, client generated hashes)
 1. Write system id back to blob as metadata, immediately after getting new file notification. maintain ingestion test counter.
-1. If uploaded file name is GUID, use as basis for internal ids. Creates predictable urls for ingested files. Places restriction on file upload, all files with GUID names must be unique, should not be a big problem? Hmm...
+1. Consider: If uploaded file name is GUID, use as basis for internal ids. Creates predictable urls for ingested files. Places restriction on file upload, all files with GUID names must be unique, should not be a big problem? Hmm...
 1. Add support for RAW files, extract embedded thumb or best-approach conversion
 1. ~Read relative path from blob and store as record field, use for hierarchical structure.~ Need to figure out how to build the folder navigation data structure.
 1. ~Containerize converter module~
