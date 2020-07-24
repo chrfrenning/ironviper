@@ -199,7 +199,7 @@ def download_blob(url, account_key):
 # Record handling
 #
 
-def create_file_record(url, unique_id, partition_key, short_id, name, extension, exifString, xmpString, url_list, md5, sha256, instance_name, account_key):
+def create_file_record(url, unique_id, partition_key, short_id, name, extension, relative_path, exifString, xmpString, url_list, md5, sha256, instance_name, account_key):
     start = time.time()
 
     utcnow = datetime.datetime.utcnow().isoformat()
@@ -213,18 +213,66 @@ def create_file_record(url, unique_id, partition_key, short_id, name, extension,
         'url': url,                         # master blob url
         'name': name,                       # filename
         'ext' : extension,                  # file extension
+        'path' : relative_path,             # path / folder file lives in
         'it': utcnow,                       # ingestion_time
         'pvs' : json.dumps(url_list),       # json list of preview urls
         'md5' : md5,                        # md5 checksum of total file binary data at ingestion time
         'sha256' : sha256,                  # sha256 checksum of total file binary data at ingestion time
         'exif' : exifString,                # exif dumped as json by imagemagick
-        'xmp' : xmpString                   # if exif identified APP1 data, xmp dump in xml by imagemagick
+        'xmp' : xmpString,                  # if exif identified APP1 data, xmp dump in xml by imagemagick
+        'created_time' : utcnow,            # file creation time, using now, TODO: pick up file metadata if provided in upload
+        'modified_time' : utcnow            # file mod time, using now, TODO: pick up file metadata if provided in upload
     }
 
     table_service = TableService(account_name=instance_name, account_key=account_key)
     table_service.insert_or_replace_entity('files', file_record)
 
     print "file_record inserted in {} sec".format(time.time()-start)
+
+    # Change record to folder facing
+    # TODO: Strip large metadata blocks and keep info needed for UIs
+
+    file_record["PartitionKey"] = relative_path.replace("/", "%2F")
+    table_service.insert_or_replace_entity('folders', file_record)
+
+    # Ensure we have folder records for the entire path
+    # TODO: Optimization; Check if the final folder exists, if so, skip step (we know all higher level paths have been created too)
+    
+    folder_struct = relative_path.split("/")
+
+    # partition keys cannot have / in them, this is the best I can come up with atm
+    folder_struct[0] = "%2F" # path starts with slash, will have empty slot first, replace with /
+    last_folder = folder_struct[0] # weird exception case, root refers to itself as parent, but easy to check for later
+
+    for folder in folder_struct:
+        if len(folder) == 0: # ignore empty paths, tolerate e.g. folder1//folder2/folder3/
+            continue
+        
+        folder_record = {
+            'PartitionKey': last_folder,
+            'RowKey': folder,
+            'created_time': utcnow,
+            'modified_time': utcnow,
+            'nf_flag': True,
+            'nf_time': utcnow,
+            'is_folder': True
+        }
+
+        last_folder = folder
+
+        # if folder already exist, we will fail, remove the creation properties and
+        # try a merge operation (that should work unless service is down)
+        try:
+            table_service.insert_entity('folders', folder_record)
+        except:
+            folder_record.pop('created_time')
+            table_service.insert_or_merge_entity('folders', folder_record)
+
+    # PartitionKey    RowKey
+    # /               /                 < Do we need this level at all?
+    # /               subfolder1
+    # /               subfolder2
+    # /subfolder1     subfolder1-1
 
 
 
@@ -299,7 +347,7 @@ def create_file_checksums(file_name):
 
 
 
-def _handle_image_generic(url, unique_id, partition_key, short_id, temporary_file_name, name, extension, instance_name, account_key):
+def _handle_image_generic(url, unique_id, partition_key, short_id, temporary_file_name, name, extension, relative_path, instance_name, account_key):
     thumbs = None
 
     try:
@@ -337,7 +385,7 @@ def _handle_image_generic(url, unique_id, partition_key, short_id, temporary_fil
         # done the work, create the file record
 
         print "Creating master file record"
-        create_file_record(url, unique_id, partition_key, short_id, name, extension, exifString, xmp, url_list, md5, sha256, instance_name, account_key)
+        create_file_record(url, unique_id, partition_key, short_id, name, extension, relative_path, exifString, xmp, url_list, md5, sha256, instance_name, account_key)
 
     finally:
         if not debugMode and thumbs is not None:
@@ -346,7 +394,7 @@ def _handle_image_generic(url, unique_id, partition_key, short_id, temporary_fil
 
 
 
-def handle_jpeg_image(url, unique_id, partition_key, short_id, temporary_file_name, name, extension, instance_name, account_key):
+def handle_jpeg_image(url, unique_id, partition_key, short_id, temporary_file_name, name, extension, relative_path, instance_name, account_key):
     thumbs = None
 
     try:
@@ -356,7 +404,7 @@ def handle_jpeg_image(url, unique_id, partition_key, short_id, temporary_file_na
             raise FileTypeValidationException("{} ext .jpg is not identified as JPEG.".format(temporary_file_name))
 
         # handle image
-        _handle_image_generic(url, unique_id, partition_key, short_id, temporary_file_name, name, extension, instance_name, account_key)
+        _handle_image_generic(url, unique_id, partition_key, short_id, temporary_file_name, name, extension, relative_path, instance_name, account_key)
 
     except Exception as ex:
         print "handle_image exception: ", ex.message
@@ -367,7 +415,7 @@ def handle_jpeg_image(url, unique_id, partition_key, short_id, temporary_file_na
 
 
 
-def handle_generic_file(url, unique_id, partition_key, short_id, temporary_file_name, name, extension, instance_name, account_key):
+def handle_generic_file(url, unique_id, partition_key, short_id, temporary_file_name, name, extension, relative_path, instance_name, account_key):
     thumbs = None
 
     try:
@@ -379,7 +427,7 @@ def handle_generic_file(url, unique_id, partition_key, short_id, temporary_file_
         # done the work, create the file record
 
         print "Creating master file record"
-        create_file_record(url, unique_id, partition_key, short_id, name, extension, None, None, None, md5, sha256, instance_name, account_key)
+        create_file_record(url, unique_id, partition_key, short_id, name, extension, relative_path, None, None, None, md5, sha256, instance_name, account_key)
 
 
     except Exception as ex:
@@ -436,7 +484,7 @@ def delete_orphan_record(partition_key, short_id, instance_name, account_key):
 
 
 
-def handle_new_file(url, name, extension, instance_name, account_key):
+def handle_new_file(url, name, relative_path, extension, instance_name, account_key):
     # create id's for this file
 
     unique_id = uuid.uuid4().hex
@@ -464,10 +512,10 @@ def handle_new_file(url, name, extension, instance_name, account_key):
 
     try:
         if extension == "jpg":
-            handle_jpeg_image(url, unique_id, partition_key, short_id, tempFileName, name, extension, instance_name, account_key)
+            handle_jpeg_image(url, unique_id, partition_key, short_id, tempFileName, name, extension, relative_path, instance_name, account_key)
         else:
             print "Don't recognize extension, handling as generic file"
-            handle_generic_file(url, unique_id, partition_key, short_id, tempFileName, name, extension, instance_name, account_key)
+            handle_generic_file(url, unique_id, partition_key, short_id, tempFileName, name, extension, relative_path, instance_name, account_key)
     except FileTypeValidationException as ftvex:
         # TODO: Mark file as invalid in table, alt treat as generic file type
         pass
@@ -501,8 +549,14 @@ def handle_message(json_message, instance_name, account_key):
     extension = fn[fn.rfind('.')+1:].lower() # convert to lowercase, see switch below
     name = fn[fn.rfind('/')+1:fn.rfind('.')]
     #name = fn[fn.rfind('/')+1:]
+    
+    path_start = "file-store"
+    relative_path = fn[fn.find(path_start)+len(path_start):]
+    relative_path = relative_path[:-(len(name)+len(extension)+2)] # plus one for the dot (.jpg), plus one for final slash (/)
+    if len(relative_path) == 0:
+        relative_path = "/"
 
-    print "Pathinfo: " + fn + ", " + name + ", " + extension
+    print "Pathinfo: " + fn + ", " + name + ", " + extension + "," + relative_path
 
     # type of message?
     
@@ -512,7 +566,7 @@ def handle_message(json_message, instance_name, account_key):
     if event_type == "Microsoft.Storage.BlobDeleted":
         handle_deleted_file(url, name, extension, instance_name, account_key)
     elif event_type == "Microsoft.Storage.BlobCreated":
-        handle_new_file(url, name, extension, instance_name, account_key)
+        handle_new_file(url, name, relative_path, extension, instance_name, account_key)
     else:
         if debugMode == True:
             raise Exception("Unknown event type ({}).".format(event_type))

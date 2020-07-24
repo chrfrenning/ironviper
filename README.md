@@ -35,7 +35,8 @@ Current status is that resource provisioning (deploy_azure.sh) is working, and m
 ### plan
 
 1. Read metadata (org filename, org modified time, client generated hashes) when ingesting files
-1. Write system id back to blob as metadata
+1. Write system id back to blob as metadata, immediately after getting new file notification. maintain ingestion test counter.
+1. If uploaded file name is GUID, use as basis for internal ids. Creates predictable urls for ingested files. Places restriction on file upload, all files with GUID names must be unique, should not be a big problem? Hmm...
 1. Add support for RAW files, extract embedded thumb or best-approach conversion
 1. ~Read relative path from blob and store as record field, use for hierarchical structure.~ Need to figure out how to build the folder navigation data structure.
 1. ~Containerize converter module~
@@ -53,3 +54,7 @@ Current status is that resource provisioning (deploy_azure.sh) is working, and m
 1. change from python 2 to 3 for converter? consider at a later point, if we want a smaller container image we may have to forgo python anyhow.
 1. make a clear-all-data.py tool to wipe storage, tables, and queues for fresh start when dev and debug. Use ARM tag Development: True to authorize this script to run.
 1. Handle blob deletions. Don't know how yet, what is sensible? Effectively external deletions, should we respect and delete everything, or should we keep the record and indicate a broken link? #thinkingneeded
+
+## me
+
+Made in ![Swiss Flag](https://cdn.countryflags.com/download/switzerland/flag-png-icon-16.png) by a ![Norwegian Flag](https://cdn.countryflags.com/download/norway/flag-png-icon-16.png). Inspired by the freedom of alps and fjords, and thorough love of quality.
