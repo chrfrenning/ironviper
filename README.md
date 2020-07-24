@@ -6,6 +6,8 @@ What? Image conversion at scale using imagemagick, docker containers, and cloud 
 
 Note! this project is at very early stage, not much functioning yet. Want the nitty-gritty details? [Read the Journal](https://github.com/chrfrenning/ironviper/wiki/Journal).
 
+Are you a photographer? I want to hear from you and learn what you need! DM @chrfrenning on Twitter or email me on christopher@frenning.com or give me a call at +41 (0) 76 518 08 77
+
 
 ## status
 
@@ -57,4 +59,4 @@ Current status is that resource provisioning (deploy_azure.sh) is working, and m
 
 ## me
 
-Made in ![Swiss Flag](https://chphno.blob.core.windows.net/ironviper-static/switzerland-flag-icon-16.png) by a ![Norwegian Flag](https://chphno.blob.core.windows.net/ironviper-static/norway-flag-icon-16.png). Inspired by the freedom of alps and fjords + love of quality, chocolate and great food.
+Made in ![Swiss Flag](https://chphno.blob.core.windows.net/ironviper-static/switzerland-flag-icon-16.png) by a ![Norwegian Flag](https://chphno.blob.core.windows.net/ironviper-static/norway-flag-icon-16.png). Inspired by the light in alps and fjords + love of quality, chocolate and great food.
