@@ -258,8 +258,9 @@ def create_file_record(url, unique_id, partition_key, short_id, name, extension,
             'nf_time': utcnow,
             'item_type': 'folder'
         }
-
-        last_folder = last_folder + "%2F" + folder
+        
+        if len(folder) > 3: # special handling of root
+            last_folder = last_folder + "%2F" + folder
 
         # if folder already exist, we will fail, remove the creation properties and
         # try a merge operation (that should work unless service is down)
