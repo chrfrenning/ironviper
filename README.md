@@ -57,4 +57,4 @@ Current status is that resource provisioning (deploy_azure.sh) is working, and m
 
 ## me
 
-Made in ![Swiss Flag](https://chphno.blob.core.windows.net/ironviper-static/switzerland-flag-icon-16.png) by a ![Norwegian Flag](https://chphno.blob.core.windows.net/ironviper-static/norway-flag-icon-16.png). Inspired by the freedom of alps and fjords, and thorough love of quality.
+Made in ![Swiss Flag](https://chphno.blob.core.windows.net/ironviper-static/switzerland-flag-icon-16.png) by a ![Norwegian Flag](https://chphno.blob.core.windows.net/ironviper-static/norway-flag-icon-16.png). Inspired by the freedom of alps and fjords + love of quality, chocolate and great food.
