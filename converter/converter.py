@@ -233,6 +233,7 @@ def create_file_record(url, unique_id, partition_key, short_id, name, extension,
     # TODO: Strip large metadata blocks and keep info needed for UIs
 
     file_record["PartitionKey"] = relative_path.replace("/", "%2F")
+    file_record['item_type'] = 'file'
     table_service.insert_or_replace_entity('folders', file_record)
 
     # Ensure we have folder records for the entire path
@@ -255,10 +256,10 @@ def create_file_record(url, unique_id, partition_key, short_id, name, extension,
             'modified_time': utcnow,
             'nf_flag': True,
             'nf_time': utcnow,
-            'is_folder': True
+            'item_type': 'folder'
         }
 
-        last_folder = folder
+        last_folder = last_folder + "%2F" + folder
 
         # if folder already exist, we will fail, remove the creation properties and
         # try a merge operation (that should work unless service is down)
