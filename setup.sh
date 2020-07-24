@@ -120,6 +120,7 @@ az storage container create --account-name $rgn --name "file-store" --account-ke
 az storage container create --account-name $rgn --name "pv-store" --account-key $storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 az storage queue create --account-name $rgn --name "extract-queue" --account-key $storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 az storage table create --account-name $rgn --name "files" --account-key $storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+az storage table create --account-name $rgn --name "folders" --account-key $storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 az storage table create --account-name $rgn --name "orphans" --account-key $storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 
 
@@ -286,6 +287,7 @@ if [ "$1" -eq "--development" ]; then
     # TODO: Build dcraw, ufraw-batch, exiftool, imagemagick
     # TODO: Write from configuration to /frontend/local.settings.json for easier debugging, we need instancename and storagekey
 else
+    echo -e "${Y}Cleaning up...${NC}"
     # rm -rf ./$rgn
 fi
 
