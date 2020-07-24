@@ -36,7 +36,8 @@ Current status is that resource provisioning (deploy_azure.sh) is working, and m
 
 1. Read metadata (org filename, org modified time, client generated hashes) when ingesting files
 1. Write system id back to blob as metadata
-1. Read relative path from blob and store as record field, use for hierarchical structure
+1. Add support for RAW files, extract embedded thumb or best-approach conversion
+1. ~Read relative path from blob and store as record field, use for hierarchical structure.~ Need to figure out how to build the folder navigation data structure.
 1. ~Containerize converter module~
 1. ~Scaffold api~
 1. ~Ingest test files to storage at setup~ and automate (massive) test file uploads (you can upload a single file with upload.py)
