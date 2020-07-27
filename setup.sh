@@ -21,7 +21,7 @@ NC='\033[0m' # No Color
 # Startup information
 
 echo -e "${Y}Starting setup at $(date)${NC}.\nSee setup.log for verbose log info."
-echo -e "${G}Version: 2020-07-27"
+echo -e "${G}Version: 2020-07-27-1"
 
 
 
