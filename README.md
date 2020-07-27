@@ -11,7 +11,7 @@ Are you a photographer? I want to hear from you and learn what you need! DM @chr
 
 ## status
 
-Current status is that resource provisioning (deploy_azure.sh) is working, and manual uploads of files to 'file-store' container will result in thumbs and previews generated. a very simple web interface will display thumbnails.
+Current status is that resource provisioning (setup.sh) is working, and manual uploads of files to 'file-store' container will result in thumbs and previews generated. a very simple web interface will display thumbnails and links to detail page.
 
 
 ## how to get started
@@ -26,21 +26,20 @@ Current status is that resource provisioning (deploy_azure.sh) is working, and m
     
 ```
 
-1. Fire up a linux instance somewhere, you need docker support
-1. Copy the configuration.toml from your azure shell instance (bug! that won't work, you'll need to create it yourself. hints in setup.sh)
-1. Run 'export DEBUG=1'
-1. Run 'python ./converter/run_docker.py' to start a container with the converter
 1. Upload some files using 'python tools/upload.py'
-1. Inspect the files table, pv-store to see output
+1. Inspect the files+folder tables for fileinfo and metadata, pv-store to see output
+1. See url presented at end of setup for very naïve web ui
 
 
 ### plan
 
-1. ~Split static website and api; debugging not easily viable with current setup~
+
 1. Read metadata from uploader when ingesting files (org filename, org modified time, client generated hashes)
 1. Write system id back to blob as metadata, immediately after getting new file notification. maintain ingestion test counter.
 1. Consider: If uploaded file name is GUID, use as basis for internal ids. Creates predictable urls for ingested files. Places restriction on file upload, all files with GUID names must be unique, should not be a big problem? Hmm...
 1. Add support for RAW files, extract embedded thumb or best-approach conversion
+1. Scaffold react app for ui's
+1. ~Split static website and api; debugging not easily viable with current setup~
 1. ~Read relative path from blob and store as record field, use for hierarchical structure.~ Need to figure out how to build the folder navigation data structure.
 1. ~Containerize converter module~
 1. ~Scaffold api~
