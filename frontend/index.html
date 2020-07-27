@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!--link rel="stylesheet" href="styles.css"-->
   <title>ironviper</title>
+  <script src="/js/client-library.js"></script>
 </head>
 
 <body>
@@ -18,7 +19,7 @@
     (async function() {
       
       var html = "";
-      let records = await( await fetch('/api/GetStream')).json();
+      let records = await( await fetch(global_properties['api-endpoint'] + '/api/GetStream')).json();
       
       records.forEach( element => {
 
@@ -34,9 +35,9 @@
                 pvurl = url;
               }
           });
-          console.log("Preview url: " + pvurl);
+          //console.log("Preview url: " + pvurl);
           
-          html += `<a href="/files/${element.RowKey._}"><h2>${element.name._}.${element.ext._}</h2><img src="${pvurl}" /></a>`;
+          html += `<a href="/detail.html?i=${element.RowKey._}"><h2>${element.name._}.${element.ext._}</h2><img src="${pvurl}" /></a>`;
         }
         else
         {

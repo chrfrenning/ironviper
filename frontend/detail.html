@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="styles.css">
   <title>ironviper - detail view</title>
+  <script src="/js/client-library.js"></script>
 </head>
 
 <body>
@@ -17,11 +18,11 @@
     (async function() {
       
       var url = window.location.href;
-      var fileId = url.slice(url.lastIndexOf('/')+1);
+      var fileId = url.slice(url.lastIndexOf('i=')+2);
       console.log("File id: " + fileId);
       
       var html = "";
-      let element = await( await fetch(`/api/GetFileInformation?id=${fileId}`)).json();
+      let element = await( await fetch(global_properties['api-endpoint'] + `/api/GetFileInformation?id=${fileId}`)).json();
       
         console.log('id: ' + element.RowKey._ + " name " + element.name._ + "." + element.ext._);
 

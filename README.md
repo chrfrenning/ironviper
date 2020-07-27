@@ -36,7 +36,7 @@ Current status is that resource provisioning (deploy_azure.sh) is working, and m
 
 ### plan
 
-1. Split static website and api; debugging not easily viable with current setup
+1. ~Split static website and api; debugging not easily viable with current setup~
 1. Read metadata from uploader when ingesting files (org filename, org modified time, client generated hashes)
 1. Write system id back to blob as metadata, immediately after getting new file notification. maintain ingestion test counter.
 1. Consider: If uploaded file name is GUID, use as basis for internal ids. Creates predictable urls for ingested files. Places restriction on file upload, all files with GUID names must be unique, should not be a big problem? Hmm...
@@ -51,7 +51,7 @@ Current status is that resource provisioning (deploy_azure.sh) is working, and m
 1. ~Infrastructure to scale converter containers, from 0 to massive. Massive is now 10 instances.~
 1. Calculate perceptual image hashes for de-dupe and extract key metadata for heuristics dedupe process.
 1. ~Scaffold web frontend to display ingested files.~ Headache: choosing frontend framework, react, vue, angular??? Journal framework decision.
-1. Split setup.sh into 1) default provision in azure only (it-pro mode) 2) and optional setup local dev and debug environment (pro-dev mode)
+1. ~Split setup.sh into 1) default provision in azure only (it-pro mode) 2) and optional setup local dev and debug environment (pro-dev mode)~
 1. Handle digital negatives with dcraw (must build imagemagick from source when creating container?)
 1. set a delete lock on the storage account. important data will be stored here, so we don't want unwanted deletes. 
 1. change from python 2 to 3 for converter? consider at a later point, if we want a smaller container image we may have to forgo python anyhow.

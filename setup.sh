@@ -18,6 +18,36 @@ NC='\033[0m' # No Color
 
 
 
+# Check script parameters (--noclone and --development)
+
+noclone=0
+devmode=0
+
+while test $# -gt 0
+do
+    case "$1" in
+        --noclone) 
+            echo "--noclone parameter set"
+            noclone=1
+            ;;
+        --development) 
+            echo "--development mode parameter set"
+            devmode=1
+            ;;
+        --*) 
+            echo "bad option $1"
+            exit 1
+            ;;
+        *) 
+            echo "bad argument $1"
+            exit 1
+            ;;
+    esac
+    shift
+done
+
+
+
 # Create random number for resource creation
 # Keeping this at the beginning of the script to make basic customization easy
 
@@ -48,9 +78,13 @@ echo -e "${G}Version: 2020-06-30-4"
 
 # Get the code, clone git repo https://github.com/chrfrenning/ironviper.git
 
-echo -e "${Y}Cloning code from GitHub...${NC}"
-git clone https://github.com/chrfrenning/ironviper.git $rgn || echo -e "${R}Failed.${NC}"
-cd $rgn
+if [ $noclone -eq 0 ]
+    echo -e "${Y}Cloning code from GitHub...${NC}"
+    git clone https://github.com/chrfrenning/ironviper.git $rgn || echo -e "${R}Failed.${NC}"
+    cd $rgn
+else
+    echo -e "${Y}Not cloning from GitHub, using current folder+branch...${NC}"
+fi
 
 
 
@@ -117,7 +151,7 @@ az keyvault secret set --vault-name $rgn --name "storageKey" --value "$storageKe
 echo "account_key = \"$storageKey\"" >> ./configuration.toml
 
 az storage container create --account-name $rgn --name "file-store" --account-key $storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
-az storage container create --account-name $rgn --name "pv-store" --account-key $storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+az storage container create --account-name $rgn --name "pv-store" --public-access blob --account-key $storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 az storage queue create --account-name $rgn --name "extract-queue" --account-key $storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 az storage table create --account-name $rgn --name "files" --account-key $storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 az storage table create --account-name $rgn --name "folders" --account-key $storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
@@ -136,17 +170,6 @@ az eventgrid event-subscription create --name "new-files-to-extractors" --source
 
 
 
-# Build and push static webfrontend to $web in storage account
-
-echo -e "${Y}Creating static website and pushing code...${NC}"
-
-az storage blob service-properties update --account-name $rgn --account-key $storageKey --static-website --404-document 404.html --index-document index.html >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
-az storage blob upload-batch -s ./frontend -d '$web' --account-name $rgn --account-key $storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
-staticurl=$(az storage account show -n $rgn -g $rgn --query "primaryEndpoints.web" --output tsv)
-echo "static_url = \"$staticurl\"" >> ./configuration.toml
-
-
-
 # Set up functions on consumption plan and push api
 
 echo -e "${Y}Creating functionapp for serverless API...${NC}"
@@ -160,14 +183,10 @@ az resource create -g $rgn -n $rgn --resource-type "Microsoft.Insights/component
 
 az functionapp create -n $rgn -g $rgn --storage-account fn$rnd --consumption-plan-location $location --app-insights $rgn --runtime node --functions-version 3 >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 functionsurl=$(az functionapp list -g $rgn | jq -r ".[].hostNames[0]")
-echo "functions_url = \"$staticurl\"" >> ./configuration.toml
+echo "functions_url = \"$functionsurl\"" >> ./configuration.toml
 
 # Create ./api/local.settings.json file with correct cfg parameters
 sed -e "s#INAME#$rgn#g" -e "s#SKEY#$storageKey#g" -e "s#CID#$clientId#g" -e "s#CSEC#$clientSecret#g" -e "s#TENID#$tenantId#g" -e "s#SUBID#$subscriptionId#g" ./api/local.settings.template > ./api/local.settings.json
-
-# Push $staticurl onto ./api/proxies.json to refer to correct backend
-
-sed -e "s#BACKEND#$staticurl#g" ./api/proxies.template > ./api/proxies.json
 
 
 
@@ -190,14 +209,34 @@ echo -e "${Y}Deploying api code...${NC}"
 
 az functionapp deployment source config-zip -g $rgn -n $rgn --src ./tmp/api.zip >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 
-
-
 # Push settings to azure functions
 # TODO: Make function app get storage key from keyvault instead of configuration
 
 echo -e "${Y}Pushing settings to function app...${NC}"
-az functionapp config appsettings set --n $rgn -g $rgn --settings InstanceName=$rgn StorageAccountKey=$storageKey ClientId=$clientId ClientSecret=$clientSecret TenantId=$tenantId SubscriptionId=$subscriptionId >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+az functionapp config appsettings set -n $rgn -g $rgn --settings InstanceName=$rgn StorageAccountKey=$storageKey ClientId=$clientId ClientSecret=$clientSecret TenantId=$tenantId SubscriptionId=$subscriptionId >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 
+
+
+# Build and push static webfrontend to $web in storage account
+
+echo -e "${Y}Creating static website and pushing code...${NC}"
+
+az storage blob service-properties update --account-name $rgn --account-key $storageKey --static-website --404-document index.html --index-document index.html >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+
+sed -e "s#APIURL#https://$functionsurl#g" ./frontend/js/client-library.template > ./frontend/js/client-library.js
+az storage blob upload-batch -s ./frontend -d '$web' --account-name $rgn --account-key $storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+
+staticurl=$(az storage account show -n $rgn -g $rgn --query "primaryEndpoints.web" --output tsv)
+echo "static_url = \"$staticurl\"" >> ./configuration.toml
+
+
+# Change CORS to allow static website to access
+
+az functionapp cors add -n $rgn -g $rgn --allowed-origins ${staticurl:0:-1}
+if [ $devmode -eq 1 ]
+then
+  az functionapp cors add -n $rgn -g $rgn --allowed-origins http://localhost:5500/
+fi
 
 
 
@@ -269,10 +308,12 @@ az storage blob upload-batch -s ./tmp/ironviper-testfiles -d 'file-store' --acco
 # Optionally setup development environment on local instance
 #
 
-if [ "$1" -eq "--development" ]; then
+
+if [ $devmode -eq 1 ]
+then
 
     echo "--development set, prepping this environ for development on ironviper"
-    echo "note this will store sensitive info on your computer, keep it safe (configuration.toml, ) keys safe"
+    echo "note this will store sensitive info on your computer, keep it safe (configuration.toml, serviceprincipal.json)"
     
     pip install -r ./converter/requirements.txt
 
@@ -292,5 +333,5 @@ else
 fi
 
 
-echo -e "${G}Done.\nSee new resource group in azure: $rgn\nBrowse website: $functionsurl${NC}"
+echo -e "${G}Done.\nSee new resource group in azure: ${rgn}\nBrowse website: ${staticurl} (api at https://${functionsurl}/api/)${NC}"
 echo -e "${NC}(Note: We're not quite finished yet, but some stuff working, investigate and have fun - or try again in a few cycles...)${NC}"
