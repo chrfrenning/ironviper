@@ -295,12 +295,22 @@ az container create -g $rgn -n $rgn-converter-00 --cpu 1 --memory 3 --restart-po
 # Download some test files and send them to the system for ingestion
 
 echo -e "${Y}Downloading test files...${NC}"
-azcopy copy https://chphno.blob.core.windows.net/ironviper-testfiles/ ./tmp --recursive # standard sample file collection
+azcopy copy https://chphno.blob.core.windows.net/ironviper-testfiles/ ./tmp --recursive >> setup.log 2>&1 || echo -e "${R}Failed.${NC}" # standard sample file collection
 
 # Ingest test files into the file-store
 
 echo -e "${Y}Uploading test files to check system...${NC}"
 az storage blob upload-batch -s ./tmp/ironviper-testfiles -d 'file-store' --account-name $rgn --account-key $storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+
+
+
+# #####################################################################
+# 
+# We're done, info on how to use
+#
+
+echo -e "${G}Done.\nSee new resource group in azure: ${rgn}\nBrowse website: ${staticurl} (api at https://${functionsurl}/api/)${NC}"
+echo -e "${NC}(Note: We're not quite finished yet, but some stuff working, investigate and have fun - or try again in a few cycles...)${NC}"
 
 
 
@@ -333,6 +343,3 @@ else
     # rm -rf ./$rgn
 fi
 
-
-echo -e "${G}Done.\nSee new resource group in azure: ${rgn}\nBrowse website: ${staticurl} (api at https://${functionsurl}/api/)${NC}"
-echo -e "${NC}(Note: We're not quite finished yet, but some stuff working, investigate and have fun - or try again in a few cycles...)${NC}"
