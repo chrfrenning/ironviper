@@ -18,6 +18,13 @@ NC='\033[0m' # No Color
 
 
 
+# Startup information
+
+echo -e "${Y}Starting setup at $(date)${NC}.\nSee setup.log for verbose log info."
+echo -e "${G}Version: 2020-07-27"
+
+
+
 # Check script parameters (--noclone and --development)
 
 noclone=0
@@ -57,13 +64,6 @@ location=centralus
 
 
 
-# Create log file
-
-echo -e "${Y}Starting setup at $(date)${NC}.\nSee setup.log for verbose log info."
-echo -e "${G}Version: 2020-06-30-4"
-
-
-
 # TODO: Ensure we have tools we need, e.g. jq and python
 # sudo apt install jq # note, script intended for azure shell, has jq and python
 
@@ -79,6 +79,7 @@ echo -e "${G}Version: 2020-06-30-4"
 # Get the code, clone git repo https://github.com/chrfrenning/ironviper.git
 
 if [ $noclone -eq 0 ]
+then
     echo -e "${Y}Cloning code from GitHub...${NC}"
     git clone https://github.com/chrfrenning/ironviper.git $rgn || echo -e "${R}Failed.${NC}"
     cd $rgn
