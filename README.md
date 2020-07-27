@@ -9,7 +9,7 @@ Note! this project is at very early stage, not much functioning yet. Want the ni
 Are you a photographer? I want to hear from you and learn what you need! DM @chrfrenning on Twitter or email me on christopher@frenning.com or give me a call at +41 (0) 76 518 08 77
 
 
-## status
+## status all-up
 
 Current status is that resource provisioning (setup.sh) is working, and manual uploads of files to 'file-store' container will result in thumbs and previews generated. a very simple web interface will display thumbnails and links to detail page.
 
