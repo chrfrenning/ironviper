@@ -51,7 +51,6 @@ Current status is that resource provisioning (setup.sh) is working, and manual u
 1. Calculate perceptual image hashes for de-dupe and extract key metadata for heuristics dedupe process.
 1. ~Scaffold web frontend to display ingested files.~ Headache: choosing frontend framework, react, vue, angular??? Journal framework decision.
 1. ~Split setup.sh into 1) default provision in azure only (it-pro mode) 2) and optional setup local dev and debug environment (pro-dev mode)~
-1. Handle digital negatives with dcraw (must build imagemagick from source when creating container?)
 1. set a delete lock on the storage account. important data will be stored here, so we don't want unwanted deletes. 
 1. change from python 2 to 3 for converter? consider at a later point, if we want a smaller container image we may have to forgo python anyhow.
 1. make a clear-all-data.py tool to wipe storage, tables, and queues for fresh start when dev and debug. Use ARM tag Development: True to authorize this script to run.
