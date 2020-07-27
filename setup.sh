@@ -21,7 +21,7 @@ NC='\033[0m' # No Color
 # Startup information
 
 echo -e "${Y}Starting setup at $(date)${NC}.\nSee setup.log for verbose log info."
-echo -e "${G}Version: 2020-07-27-1"
+echo -e "${G}Version: 2020-07-27-3"
 
 
 
@@ -292,25 +292,28 @@ az container create -g $rgn -n $rgn-converter-00 --cpu 1 --memory 3 --restart-po
 
 
 
-# Download some test files and send them to the system for ingestion
-
-echo -e "${Y}Downloading test files...${NC}"
-azcopy copy https://chphno.blob.core.windows.net/ironviper-testfiles/ ./tmp --recursive >> setup.log 2>&1 || echo -e "${R}Failed.${NC}" # standard sample file collection
-
-# Ingest test files into the file-store
-
-echo -e "${Y}Uploading test files to check system...${NC}"
-az storage blob upload-batch -s ./tmp/ironviper-testfiles -d 'file-store' --account-name $rgn --account-key $storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
-
-
-
 # #####################################################################
 # 
 # We're done, info on how to use
 #
 
-echo -e "${G}Done.\nSee new resource group in azure: ${rgn}\nBrowse website: ${staticurl} (api at https://${functionsurl}/api/)${NC}"
-echo -e "${NC}(Note: We're not quite finished yet, but some stuff working, investigate and have fun - or try again in a few cycles...)${NC}"
+echo -e "${G}Done.${NC}"
+echo -e "${NC}Created resource group ${rgn} in azure.${NC}"
+echo -e "${G}Browse website: ${staticurl} to test the system.${NC}"
+echo -e "${NC}(Api at https://${functionsurl}/api/)${NC}"
+echo -e "${NC}(Note: We're not quite finished yet - not even a PoC - but some stuff is working, investigate and have fun - or try again in a few cycles...)${NC}"
+
+
+# Download some test files and send them to the system for ingestion
+# standard sample file collection at https://chphno.blob.core.windows.net/ironviper-testfiles/
+
+echo -e "${Y}Downloading test files...${NC}"
+azcopy copy https://chphno.blob.core.windows.net/ironviper-testfiles/ ./tmp --recursive >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+
+# Ingest test files into the file-store
+
+echo -e "${Y}Uploading test files to check system...${NC}"
+az storage blob upload-batch -s ./tmp/ironviper-testfiles -d 'file-store' --account-name $rgn --account-key $storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 
 
 
