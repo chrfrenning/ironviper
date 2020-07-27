@@ -21,7 +21,7 @@ NC='\033[0m' # No Color
 # Startup information
 
 echo -e "${Y}Starting setup at $(date)${NC}.\nSee setup.log for verbose log info."
-echo -e "${G}Version: 2020-07-27-3"
+echo -e "${G}Version: 2020-07-27-4"
 
 
 
@@ -308,7 +308,12 @@ echo -e "${NC}(Note: We're not quite finished yet - not even a PoC - but some st
 # standard sample file collection at https://chphno.blob.core.windows.net/ironviper-testfiles/
 
 echo -e "${Y}Downloading test files...${NC}"
-azcopy copy https://chphno.blob.core.windows.net/ironviper-testfiles/ ./tmp --recursive >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+mkdir ./tmp/ironviper-testfiles
+cd ./tmp/ironviper-testfiles
+wget --quiet https://chphno.blob.core.windows.net/ironviper-testfiles/DSCF8510.jpg
+wget --quiet https://chphno.blob.core.windows.net/ironviper-testfiles/DSCF8525.jpg
+# TODO: Add new file formats as we add support for them
+cd ../..
 
 # Ingest test files into the file-store
 
