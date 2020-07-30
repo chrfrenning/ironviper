@@ -334,6 +334,7 @@ then
     echo "--development set, prepping this environ for development on ironviper"
     echo "note this will store sensitive info on your computer, keep it safe (configuration.toml, serviceprincipal.json)"
     
+    sudo npm install -g live-server
     pip install -r ./converter/requirements.txt
 
     sudo docker build -t ironviper-converter ./converter/.
