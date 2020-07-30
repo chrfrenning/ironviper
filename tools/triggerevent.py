@@ -22,7 +22,7 @@ def load_configuration():
 
 
 
-def trigger_event(typestr, subject, payload=""):
+def trigger_event(typestr, subject, data={}):
     endpoint, accesskey = load_configuration()
 
     id = str(uuid.uuid4())
@@ -32,10 +32,7 @@ def trigger_event(typestr, subject, payload=""):
             {
                 'id' : id,
                 'subject' : subject,
-                'data': {
-                    'key' : 'value',
-                    'key2' :'value2'
-                },
+                'data': data,
                 'eventType': typestr,
                 'eventTime': timestamp.isoformat(),
                 'dataVersion': 1
@@ -46,21 +43,17 @@ def trigger_event(typestr, subject, payload=""):
     r = requests.post(endpoint, headers=headers, data=json.dumps(events))
     
     if 200 >= r.status_code < 300:
-        print("Event Submitted.")
         return True
     else:
-        print("Failed.", r.response)
+        print("Failed.", r.text)
         return False
 
 
 parser = argparse.ArgumentParser(description='Trigger an ironviper event')
 parser.add_argument('-t', '--type', help="The event type you want to post.")
 parser.add_argument('-s', '--subject', help="The event subject you want to post.")
-parser.add_argument('-p', '--payload', default="", help="Payload for the event.")
-#parser.add_argument('-k', '--keeppath', default=False, action="store_true", help="Keep path of uploaded file in blob storage, relative to --path")
-#parser.add_argument('-p', '--path', default=None, help="Specify a destination path/subfolder")
 
 args = parser.parse_args()
-res = trigger_event(args.type, args.subject, args.payload)
+res = trigger_event(args.type, args.subject, None)
 
 exit(0) if res == True else exit(1)
