@@ -17,6 +17,7 @@ from urlparse import urlparse
 from azure.storage.queue import QueueClient
 from azure.storage.blob import BlobServiceClient
 from azure.storage.blob import BlobClient
+from azure.storage.blob import ContentSettings
 from azure.cosmosdb.table.tableservice import TableService
 from azure.cosmosdb.table.models import Entity
 
@@ -46,13 +47,14 @@ def create_thumbnails_classic(filename):
     os.system("convert {} -resize '800x800' -auto-orient -quality 80 -interlace Plane -strip /tmp/800.jpg".format(filename))
     os.system("convert {} -resize '600x600' -auto-orient -quality 80 -interlace Plane -strip /tmp/600.jpg".format(filename))
     os.system("convert {} -resize '400x400' -auto-orient -quality 80 -interlace Plane -strip /tmp/400.jpg".format(filename))
-    os.system("convert {} -resize 'x400' -auto-orient -quality 80 -interlace Plane -strip /tmp/g400.jpg".format(filename))
+    os.system("convert {} -resize 'x400' -auto-orient -quality 80 -interlace Plane -strip /tmp/h400.jpg".format(filename))
+    os.system("convert {} -resize '400x' -auto-orient -quality 80 -interlace Plane -strip /tmp/w400.jpg".format(filename))
     os.system("convert {} -resize '200x200' -auto-orient -quality 80 -interlace Plane -strip /tmp/200.jpg".format(filename))
     os.system("convert {} -thumbnail '100x100' -auto-orient /tmp/100.jpg".format(filename))
 
     print "create_thumbnails_classic completed in {} seconds".format(time.time() - start)
 
-    thumbs =  [ "/tmp/g400.jpg", "/tmp/hd.jpg", "/tmp/1600.jpg", "/tmp/800.jpg", "/tmp/600.jpg", "/tmp/400.jpg", "/tmp/200.jpg", "/tmp/100.jpg" ]
+    thumbs =  [ "/tmp/w400.jpg", "/tmp/h400.jpg", "/tmp/hd.jpg", "/tmp/1600.jpg", "/tmp/800.jpg", "/tmp/600.jpg", "/tmp/400.jpg", "/tmp/200.jpg", "/tmp/100.jpg" ]
     return thumbs
     
     
@@ -118,6 +120,8 @@ def create_thumbnails_mpr_optimized(filename):
 def create_thumbnails(filename):
     print "Creating thumbnails"
 
+    # TODO: When done with v-max and h-max variants, revert to using mpr-optimized function
+    
     if debugMode == True:
         thumbs = create_thumbnails_classic(filename)
         #thumbs = create_thumbnails_classic_optimized(filename)
@@ -151,8 +155,8 @@ def upload_blob(filename, url, account_key, inlineFlag=False):
         # flags = {'Content-Disposition' : 'attachment '}
         # if inlineFlag:
         #     flags['Content-Disposition'] = 'inline'
-
-        bc.upload_blob(data, blob_type="BlockBlob") #, metadata=flags)
+        settings = ContentSettings(content_type="image/jpeg", content_disposition="inline")
+        bc.upload_blob(data, blob_type="BlockBlob", content_settings=settings)
 
     print "Uploaded {} in {} seconds".format(filename, time.time()-start)
 
