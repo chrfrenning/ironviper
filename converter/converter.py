@@ -657,7 +657,7 @@ def load_configuration():
 
         # Read configuration parameters
         cloud_instance_name = configuration["instance_name"]
-        account_key = configuration["account_key"] 
+        account_key = configuration["storage_key"] 
     else:
         cloud_instance_name = os.environ['INSTANCE_NAME']
         account_key = os.environ["ACCOUNT_KEY"] 
