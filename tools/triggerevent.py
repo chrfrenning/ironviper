@@ -2,10 +2,10 @@
 import os
 import toml
 import uuid
+import json
 import argparse
 from datetime import datetime
-from azure.eventgrid import EventGridClient
-from msrest.authentication import TopicCredentials
+import requests
 
 
 
@@ -24,19 +24,11 @@ def load_configuration():
 
 def trigger_event(typestr, subject, payload=""):
     endpoint, accesskey = load_configuration()
-    print(endpoint, accesskey)
-
-    credentials = TopicCredentials(accesskey)
-    event_grid_client = EventGridClient(credentials)
 
     id = str(uuid.uuid4())
     timestamp = datetime.utcnow()
 
-    print("Created id for this event ", id, "tz", timestamp)
-
-    event_grid_client.publish_events(
-        endpoint,
-        events=[
+    events=[
             {
                 'id' : id,
                 'subject' : subject,
@@ -44,13 +36,21 @@ def trigger_event(typestr, subject, payload=""):
                     'key' : 'value',
                     'key2' :'value2'
                 },
-                'event_type': typestr,
-                'event_time': timestamp,
-                'data_version': 1
+                'eventType': typestr,
+                'eventTime': timestamp.isoformat(),
+                'dataVersion': 1
             }
         ]
-    )
-
+    
+    headers = { 'aeg-sas-key' : accesskey, 'Content-Type' : 'application/json' }
+    r = requests.post(endpoint, headers=headers, data=json.dumps(events))
+    
+    if 200 >= r.status_code < 300:
+        print("Event Submitted.")
+        return True
+    else:
+        print("Failed.", r.response)
+        return False
 
 
 parser = argparse.ArgumentParser(description='Trigger an ironviper event')
@@ -61,4 +61,6 @@ parser.add_argument('-p', '--payload', default="", help="Payload for the event."
 #parser.add_argument('-p', '--path', default=None, help="Specify a destination path/subfolder")
 
 args = parser.parse_args()
-trigger_event(args.type, args.subject, args.payload)
+res = trigger_event(args.type, args.subject, args.payload)
+
+exit(0) if res == True else exit(1)
