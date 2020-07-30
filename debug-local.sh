@@ -41,5 +41,5 @@ then
 
     # Start live-server on port 5500
     cd ../frontend
-    live-server --port 5500 . &
+    live-server --port=5500 . &
 fi
