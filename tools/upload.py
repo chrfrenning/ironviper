@@ -65,8 +65,8 @@ def upload_file(file_name, keep_path, custom_path):
     destination_path = "/"
 
     if custom_path is not None and len(custom_path) > 0:
-        if custom_path[0] == '/':
-            custom_path = custom_path[1:]
+        if custom_path[0] != '/':
+            custom_path = "/" + custom_path
 
         destination_path = custom_path
     
@@ -97,7 +97,7 @@ def upload_file(file_name, keep_path, custom_path):
 
 
     print "Uploading ", filename, " as ", destination_filename
-    os.system("az storage blob upload -f '{}' -c file-store -n '{}{}' --account-name {} --account-key {} --metadata 'ORIGINAL_FILENAME={}' 'ORIGINAL_FILETIME={}' 'SOURCE_MD5={}' 'SOURCE_SHA256={}'".format(filename, destination_path, destination_filename, account_name, account_key, original_file_name, original_file_time, md5, sha256))
+    os.system("az storage blob upload -f '{}' -c file-store -n '{}{}' --account-name {} --account-key {} --metadata 'ORIGINAL_FILENAME={}' 'ORIGINAL_FILETIME={}' 'SOURCE_MD5={}' 'SOURCE_SHA256={}'".format(filename, destination_path[1:], destination_filename, account_name, account_key, original_file_name, original_file_time, md5, sha256))
 
 
 parser = argparse.ArgumentParser(description='Upload a file to ironviper (azure blob storage)')
