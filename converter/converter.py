@@ -51,10 +51,11 @@ def create_thumbnails_classic(filename):
     os.system("convert {} -resize '400x' -auto-orient -quality 80 -interlace Plane -strip /tmp/w400.jpg".format(filename))
     os.system("convert {} -resize '200x200' -auto-orient -quality 80 -interlace Plane -strip /tmp/200.jpg".format(filename))
     os.system("convert {} -thumbnail '100x100' -auto-orient /tmp/100.jpg".format(filename))
+    os.system("convert {} -thumbnail 100x100^ -gravity center -extent 100x100 -auto-orient /tmp/sq100.jpg".format(filename))
 
     print "create_thumbnails_classic completed in {} seconds".format(time.time() - start)
 
-    thumbs =  [ "/tmp/w400.jpg", "/tmp/h400.jpg", "/tmp/hd.jpg", "/tmp/1600.jpg", "/tmp/800.jpg", "/tmp/600.jpg", "/tmp/400.jpg", "/tmp/200.jpg", "/tmp/100.jpg" ]
+    thumbs =  [ "/tmp/sq100.jpg", "/tmp/w400.jpg", "/tmp/h400.jpg", "/tmp/hd.jpg", "/tmp/1600.jpg", "/tmp/800.jpg", "/tmp/600.jpg", "/tmp/400.jpg", "/tmp/200.jpg", "/tmp/100.jpg" ]
     return thumbs
     
     
