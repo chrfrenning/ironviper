@@ -118,12 +118,15 @@ echo -e "${Y}Creating service principal to access vault...${NC}"
 az ad sp create-for-rbac -n "http://$rgn" --sdk-auth > ./serviceprincipal.json
 
 clientId=$(cat ./serviceprincipal.json | jq -r ".clientId")
+az keyvault secret set --vault-name $rgn --name "client-id" --value "$clientId"
 echo "client_id = \"$clientId\"" >> ./configuration.toml
 
 clientSecret=$(cat ./serviceprincipal.json | jq -r ".clientSecret")
+az keyvault secret set --vault-name $rgn --name "client-secret" --value "$clientSecret"
 echo "client_secret = \"$clientSecret\"" >> ./configuration.toml
 
 tenantId=$(cat ./serviceprincipal.json | jq -r ".tenantId")
+az keyvault secret set --vault-name $rgn --name "tenant-id" --value "$tenantId"
 echo "tenant_id = \"$tenantId\"" >> ./configuration.toml
 
 
@@ -141,17 +144,34 @@ az role assignment create --role Contributor --assignee-object-id $spObjectId --
 
 
 
+# Create cognitive services
+
+echo -e "${Y}Creating cognitive services instance...${NC}"
+az cognitiveservices account create --name $rgn --resource-group $rgn --kind CognitiveServices --sku S0 --location $location >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+
+cognitiveServicesKey=$(az cognitiveservices account keys list -n $rgn -g $rgn --query "key1" -o tsv)
+az keyvault secret set --vault-name $rgn --name "cognitive-key" --value "$cognitiveServicesKey" >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+echo "cognitive_key = \"$storageKey\"" >> ./configuration.toml
+
+cognitiveEndpoint=$(az cognitiveservices account show -n $rgn -g $rgn --query "properties.endpoint" --output tsv)
+az keyvault secret set --vault-name $rgn --name "cognitive-endpoint" --value "$cognitiveEndpoint" >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+echo "cognitive_endpoint = \"$cognitiveEndpoint\"" >> ./configuration.toml
+
+
+
 # Create storage account
-# This is used to host a static website with the altizator.js script
+# This is used to store files, previews, our static website, functions sync files, etc
 
 echo -e "${Y}Creating storage...${NC}"
 az storage account create -n $rgn -g $rgn --sku "Standard_LRS" --location $location --kind "StorageV2" --access-tier "Hot" >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 
 storageKey=$(az storage account keys list -n $rgn -g $rgn --query "[?keyName=='key1'].value" -o tsv)
+az keyvault secret set --vault-name $rgn --name "storage-key" --value "$storageKey" >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+echo "storage_key = \"$storageKey\"" >> ./configuration.toml
+
 storageConnectionString=$(az storage account show-connection-string -n $rgn --query "connectionString" --output tsv)
-az keyvault secret set --vault-name $rgn --name "storageKey" --value "$storageKey" >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
-echo "account_key = \"$storageKey\"" >> ./configuration.toml
-echo "account_connstr = \"$storageConnectionString\"" >> ./configuration.toml
+az keyvault secret set --vault-name $rgn --name "storage-connstr" --value "$storageConnectionString" >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+echo "storage_connstr = \"$storageConnectionString\"" >> ./configuration.toml
 
 az storage container create --account-name $rgn --name "file-store" --account-key $storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 az storage container create --account-name $rgn --name "pv-store" --public-access blob --account-key $storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
@@ -160,6 +180,21 @@ az storage table create --account-name $rgn --name "files" --account-key $storag
 az storage table create --account-name $rgn --name "folders" --account-key $storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 az storage table create --account-name $rgn --name "orphans" --account-key $storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 
+
+
+# Create event grid
+
+echo -e "${Y}Creating event grid...${NC}"
+
+az eventgrid topic create -n $rgn -g $rgn -l $location >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+
+eventGridKey=$(az eventgrid topic key list -n $rgn -g $rgn --query "key1" -o tsv)
+az keyvault secret set --vault-name $rgn --name "eventgrid-key" --value "$eventGridKey" >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+echo "eventgrid_key = \"$eventGridKey\"" >> ./configuration.toml
+
+eventGridEndpoint=$(az eventgrid topic show -n $rgn -g $rgn --query "endpoint" --output tsv)
+az keyvault secret set --vault-name $rgn --name "eventgrid-endpoint" --value "$eventGridEndpoint" >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+echo "eventgrid_endpoint = \"$eventGridEndpoint\"" >> ./configuration.toml
 
 
 # Hook up storage events to the extract-queue
@@ -249,6 +284,7 @@ echo -e "${Y}Creating container registry for background tasks...${NC}"
 az acr create -g $rgn --name $rgn --sku Basic # >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 #az acr login --name $rgn # >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 registryUrl=$(az acr show --n $rgn -g $rgn --query "loginServer" --output tsv)
+az keyvault secret set --vault-name $rgn --name "registry-url" --value "$registryUrl" >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 echo "registry_url = \"$registryUrl\"" >> ./configuration.toml
 
 # Get registry credentials
@@ -256,6 +292,9 @@ echo "registry_url = \"$registryUrl\"" >> ./configuration.toml
 az acr update -n $rgn --admin-enabled # >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 registryUsername=$(az acr credential show -n $rgn --query username --output tsv)
 registryPassword=$(az acr credential show -n $rgn --query passwords[?name==\'password\'].value --output tsv)
+
+az keyvault secret set --vault-name $rgn --name "registry-username" --value "$registryUsername" >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+az keyvault secret set --vault-name $rgn --name "registry-password" --value "$registryPassword" >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 
 echo "registry_username = \"$registryUsername\"" >> ./configuration.toml
 echo "registry_password = \"$registryPassword\"" >> ./configuration.toml
@@ -275,17 +314,19 @@ az acr build --registry $rgn --image ironviper-converter:latest ./converter/ # >
 #       avoid breakign running systems.
 
 echo -e "${Y}Starting container instances...${NC}"
+memory=1 # configure this to optimize available memory for containers. leaving at 1 while in poc mode, increase to 3 for large files
+# TODO: Adjust memory for conversion containers
 
-az container create -g $rgn -n $rgn-converter-09 --no-wait --cpu 1 --memory 3 --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
-az container create -g $rgn -n $rgn-converter-08 --no-wait --cpu 1 --memory 3 --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
-az container create -g $rgn -n $rgn-converter-07 --no-wait --cpu 1 --memory 3 --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
-az container create -g $rgn -n $rgn-converter-06 --no-wait --cpu 1 --memory 3 --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
-az container create -g $rgn -n $rgn-converter-05 --no-wait --cpu 1 --memory 3 --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
-az container create -g $rgn -n $rgn-converter-04 --no-wait --cpu 1 --memory 3 --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
-az container create -g $rgn -n $rgn-converter-03 --no-wait --cpu 1 --memory 3 --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
-az container create -g $rgn -n $rgn-converter-02 --no-wait --cpu 1 --memory 3 --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
-az container create -g $rgn -n $rgn-converter-01 --no-wait --cpu 1 --memory 3 --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
-az container create -g $rgn -n $rgn-converter-00 --cpu 1 --memory 3 --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+az container create -g $rgn -n $rgn-converter-09 --no-wait --cpu 1 --memory $memory --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+az container create -g $rgn -n $rgn-converter-08 --no-wait --cpu 1 --memory $memory --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+az container create -g $rgn -n $rgn-converter-07 --no-wait --cpu 1 --memory $memory --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+az container create -g $rgn -n $rgn-converter-06 --no-wait --cpu 1 --memory $memory --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+az container create -g $rgn -n $rgn-converter-05 --no-wait --cpu 1 --memory $memory --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+az container create -g $rgn -n $rgn-converter-04 --no-wait --cpu 1 --memory $memory --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+az container create -g $rgn -n $rgn-converter-03 --no-wait --cpu 1 --memory $memory --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+az container create -g $rgn -n $rgn-converter-02 --no-wait --cpu 1 --memory $memory --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+az container create -g $rgn -n $rgn-converter-01 --no-wait --cpu 1 --memory $memory --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+az container create -g $rgn -n $rgn-converter-00 --cpu 1 --memory $memory --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 
 
 
