@@ -45,6 +45,7 @@ echo -e "instance: $rgn\nstoragekey: $storageKey\nregistry: $registryUrl\nusr: $
 
 echo -e "${Y}Uploading static website...${NC}"
 
+sed -e "s#APIURL#https://$functionsurl#g" ./frontend/js/client-library.template > ./frontend/js/client-library.js
 az storage blob upload-batch -s ./frontend -d '$web' --account-name $rgn --account-key $storageKey >> update.log 2>&1 || echo -e "${R}Failed.${NC}"
 
 
@@ -52,7 +53,6 @@ az storage blob upload-batch -s ./frontend -d '$web' --account-name $rgn --accou
 # Update functions config and push latest code 
 
 echo -e "${Y}Uploading azure functions code...${NC}"
-sed -e "s#BACKEND#$staticurl#g" ./api/proxies.template > ./api/proxies.json
 
 mkdir tmp >> update.log  2>&1
 rm ./tmp/api.zip >> update.log 2>&1
