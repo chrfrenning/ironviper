@@ -38,7 +38,7 @@ def upload_file(file_name, keep_path, custom_path):
 
     configuration = toml.load(configuration_file_name)
     account_name = configuration["instance_name"]
-    account_key = configuration["account_key"]
+    account_key = configuration["storage_key"]
 
     # Check the file we are about to upload
 

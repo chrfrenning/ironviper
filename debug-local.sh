@@ -5,7 +5,7 @@
 echo "Loading configuration..."
 
 rgn=$(./tools/getsetting.py instance_name)
-storageKey=$(./tools/getsetting.py account_key)
+storageKey=$(./tools/getsetting.py storage_key)
 registryUrl=$(./tools/getsetting.py registry_url)
 registryUsername=$(./tools/getsetting.py registry_username)
 registryPassword=$(./tools/getsetting.py registry_password)
