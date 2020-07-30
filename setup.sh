@@ -148,8 +148,10 @@ echo -e "${Y}Creating storage...${NC}"
 az storage account create -n $rgn -g $rgn --sku "Standard_LRS" --location $location --kind "StorageV2" --access-tier "Hot" >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 
 storageKey=$(az storage account keys list -n $rgn -g $rgn --query "[?keyName=='key1'].value" -o tsv)
+storageConnectionString=$(az storage account show-connection-string -n $rgn --query "connectionString" --output tsv)
 az keyvault secret set --vault-name $rgn --name "storageKey" --value "$storageKey" >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 echo "account_key = \"$storageKey\"" >> ./configuration.toml
+echo "account_connstr = \"$storageConnectionString\"" >> ./configuration.toml
 
 az storage container create --account-name $rgn --name "file-store" --account-key $storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 az storage container create --account-name $rgn --name "pv-store" --public-access blob --account-key $storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
@@ -175,19 +177,18 @@ az eventgrid event-subscription create --name "new-files-to-extractors" --source
 
 echo -e "${Y}Creating functionapp for serverless API...${NC}"
 
-az storage account create -n fn$rnd -l $location -g $rgn --sku Standard_LRS --kind "StorageV2"  >> setup.log 2>&1 || echo -e "${R}Failed.${NC}" # not sure if we need a separate storage account?
 az resource create -g $rgn -n $rgn --resource-type "Microsoft.Insights/components" --properties {\"Application_Type\":\"web\"} >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 
 # TODO: Revisit at a later stage, see https://github.com/Azure/azure-cli/issues/11195
 # az functionapp plan create -n $rgn -g $rgn --sku Dynamic
 # above doesn't work. no way to create a consumption plan explicitly, this means we have to live with the plan being named by the system
 
-az functionapp create -n $rgn -g $rgn --storage-account fn$rnd --consumption-plan-location $location --app-insights $rgn --runtime node --functions-version 3 >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+az functionapp create -n $rgn -g $rgn --storage-account $rgn --consumption-plan-location $location --app-insights $rgn --runtime node --functions-version 3 >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 functionsurl=$(az functionapp list -g $rgn | jq -r ".[].hostNames[0]")
 echo "functions_url = \"$functionsurl\"" >> ./configuration.toml
 
 # Create ./api/local.settings.json file with correct cfg parameters
-sed -e "s#INAME#$rgn#g" -e "s#SKEY#$storageKey#g" -e "s#CID#$clientId#g" -e "s#CSEC#$clientSecret#g" -e "s#TENID#$tenantId#g" -e "s#SUBID#$subscriptionId#g" ./api/local.settings.template > ./api/local.settings.json
+sed -e "s#STORCONN#$storageConnectionString#g" -e "s#INAME#$rgn#g" -e "s#SKEY#$storageKey#g" -e "s#CID#$clientId#g" -e "s#CSEC#$clientSecret#g" -e "s#TENID#$tenantId#g" -e "s#SUBID#$subscriptionId#g" ./api/local.settings.template > ./api/local.settings.json
 
 
 
