@@ -41,16 +41,18 @@ debugDisableMessageDeque = False
 def create_thumbnails_classic(filename):
     start = time.time()
 
-    os.system("convert {} -resize '1600x>' -quality 80 -interlace Plane -strip /tmp/1600.jpg".format(filename))
-    os.system("convert {} -resize '800>' -quality 80 -interlace Plane -strip /tmp/800.jpg".format(filename))
-    os.system("convert {} -resize '600>' -quality 80 -interlace Plane -strip /tmp/600.jpg".format(filename))
-    os.system("convert {} -resize '400>' -quality 80 -interlace Plane -strip /tmp/400.jpg".format(filename))
-    os.system("convert {} -resize '200>' -quality 80 -interlace Plane -strip /tmp/200.jpg".format(filename))
-    os.system("convert {} -thumbnail '100x100' /tmp/100.jpg".format(filename))
+    os.system("convert {} -resize '1920x1080' -auto-orient -quality 90 -interlace Plane -strip /tmp/hd.jpg".format(filename))
+    os.system("convert {} -resize '1600x1600' -auto-orient -quality 80 -interlace Plane -strip /tmp/1600.jpg".format(filename))
+    os.system("convert {} -resize '800x800' -auto-orient -quality 80 -interlace Plane -strip /tmp/800.jpg".format(filename))
+    os.system("convert {} -resize '600x600' -auto-orient -quality 80 -interlace Plane -strip /tmp/600.jpg".format(filename))
+    os.system("convert {} -resize '400x400' -auto-orient -quality 80 -interlace Plane -strip /tmp/400.jpg".format(filename))
+    os.system("convert {} -resize 'x400' -auto-orient -quality 80 -interlace Plane -strip /tmp/g400.jpg".format(filename))
+    os.system("convert {} -resize '200x200' -auto-orient -quality 80 -interlace Plane -strip /tmp/200.jpg".format(filename))
+    os.system("convert {} -thumbnail '100x100' -auto-orient /tmp/100.jpg".format(filename))
 
     print "create_thumbnails_classic completed in {} seconds".format(time.time() - start)
 
-    thumbs =  [ "/tmp/1600.jpg", "/tmp/800.jpg", "/tmp/600.jpg", "/tmp/200.jpg", "/tmp/100.jpg" ]
+    thumbs =  [ "/tmp/g400.jpg", "/tmp/hd.jpg", "/tmp/1600.jpg", "/tmp/800.jpg", "/tmp/600.jpg", "/tmp/400.jpg", "/tmp/200.jpg", "/tmp/100.jpg" ]
     return thumbs
     
     
@@ -117,12 +119,13 @@ def create_thumbnails(filename):
     print "Creating thumbnails"
 
     if debugMode == True:
-        #thumbs = create_thumbnails_classic(filename)
-        thumbs = create_thumbnails_classic_optimized(filename)
-        thumbs = create_thumbnails_mpr(filename)
-        thumbs = create_thumbnails_mpr_optimized(filename)
+        thumbs = create_thumbnails_classic(filename)
+        #thumbs = create_thumbnails_classic_optimized(filename)
+        #thumbs = create_thumbnails_mpr(filename)
+        #thumbs = create_thumbnails_mpr_optimized(filename)
     else:
-        thumbs = create_thumbnails_mpr_optimized(filename) # assuming this is the fastest way until tests run
+        #thumbs = create_thumbnails_mpr_optimized(filename) # assuming this is the fastest way until tests run
+        thumbs = create_thumbnails_classic(filename)
 
     return thumbs
 
@@ -133,7 +136,7 @@ def create_thumbnails(filename):
 # Thumbnail upload to the pv-store container
 #
  
-def upload_blob(filename, url, account_key):
+def upload_blob(filename, url, account_key, inlineFlag=False):
     bc = BlobClient.from_blob_url(url, account_key)
 
     try:
@@ -145,7 +148,11 @@ def upload_blob(filename, url, account_key):
 
     start = time.time()
     with open(filename, "rb") as data:
-        bc.upload_blob(data, blob_type="BlockBlob")
+        # flags = {'Content-Disposition' : 'attachment '}
+        # if inlineFlag:
+        #     flags['Content-Disposition'] = 'inline'
+
+        bc.upload_blob(data, blob_type="BlockBlob") #, metadata=flags)
 
     print "Uploaded {} in {} seconds".format(filename, time.time()-start)
 
@@ -159,7 +166,7 @@ def upload_thumbnails(thumbs, instance_name, account_key, short_id):
             qualifier = t[t.rfind('/')+1:]
             url = "https://{}.blob.core.windows.net/pv-store/{}_{}".format(instance_name, short_id, qualifier)
             print "Uploading: " + t + " to " + url
-            upload_blob(t, url, account_key)
+            upload_blob(t, url, account_key, inlineFlag=True)
             th_url_list.append(url)
         except Exception as ex:
             print "Failed to upload " + t + ": " + ex.message
@@ -513,7 +520,7 @@ def handle_new_file(url, name, relative_path, extension, instance_name, account_
     tempFileName = download_blob(url, account_key)
 
     try:
-        if extension == "jpg":
+        if extension == "jpg" or extension == "jpeg":
             handle_jpeg_image(url, unique_id, partition_key, short_id, tempFileName, name, extension, relative_path, instance_name, account_key)
         else:
             print "Don't recognize extension, handling as generic file"

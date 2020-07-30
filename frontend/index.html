@@ -7,12 +7,68 @@
   <!--link rel="stylesheet" href="styles.css"-->
   <title>ironviper</title>
   <script src="/js/client-library.js"></script>
+  <style>
+    * {
+      font-family: Arial;
+      font-size: 11px;
+    }
+
+    body {
+      background-color: lightgray;
+    }
+    
+    h1 {
+      font-size: 2em;
+    }
+
+    h2 {
+      font-size: 1.5em;
+    }
+
+    :any-link {
+      color: unset;
+      text-decoration: none;
+    }
+
+    .grid { 
+      display: flex;
+      flex-wrap: wrap; 
+      /* list-style-type: none; */
+      margin: 0;
+      padding: 0;
+      width: 100%;
+    }
+
+    .item {
+      height: 200px;
+      margin-right: 4px;
+      margin-bottom: 4px;
+      max-width: 400px;
+      flex-grow: 1;
+      display: inline-block;
+    }
+
+    .thimg {
+        height: 200px;
+        min-width: 100%;
+        max-width: 400px;
+        object-fit: cover; 
+        vertical-align: bottom;
+    }
+
+    .item:last-child {
+      flex-grow: 999999;
+    }
+
+    
+  </style>
 </head>
 
 <body>
   <main>
     <h1>ironviper</h1>
-    <div id="grid"></div>
+    <div class="grid" id="mgrid"></div>
+    
   </main>
 
   <script>
@@ -30,25 +86,27 @@
           var pvurl;
           var pvlist = JSON.parse(element.pvs._);
           pvlist.forEach( url => {
-              if ( url.indexOf('_200.') > 0 )
+              if ( url.indexOf('_g400.') > 0 )
               {
                 pvurl = url;
               }
           });
           //console.log("Preview url: " + pvurl);
           
-          html += `<a href="/detail.html?i=${element.RowKey._}"><h2>${element.name._}.${element.ext._}</h2><img src="${pvurl}" /></a>`;
+          html += `<li class="item"><a href="/detail.html?i=${element.RowKey._}"><img class="thimg" src="${pvurl}" /></a</li>`;
         }
         else
         {
-          console.log("Generic file, no preview available.");
-
-          html += `<h2>${element.name._}.${element.ext._}</h2><div>No preview available for this file.</div>`;
+          // temporary comment out, do not display files w/o thumbnail
+          //console.log("Generic file, no preview available.");
+          //html += `<h2>${element.name._}.${element.ext._}</h2><div>No preview available for this file.</div>`;
         }
 
       });
+
+      html += `<li class="item"></li>`;
       
-      document.querySelector('#grid').innerHTML = html;
+      document.querySelector('#mgrid').innerHTML = html;
     }())
   </script>
 </body>
