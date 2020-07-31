@@ -1,13 +1,10 @@
 #!/usr/bin/env python2.7
 import os
+import sys
 import toml
-import uuid
-import json
 import argparse
-from datetime import datetime
-import requests
-
-
+sys.path.append(os.path.abspath('../libs/python'))
+from eventgrid import trigger_event
 
 def load_configuration():
     configuration_file_name = os.path.dirname(os.path.abspath(__file__)) + "/../configuration.toml"
@@ -22,38 +19,10 @@ def load_configuration():
 
 
 
-def trigger_event(typestr, subject, data={}):
-    endpoint, accesskey = load_configuration()
-
-    id = str(uuid.uuid4())
-    timestamp = datetime.utcnow()
-
-    events=[
-            {
-                'id' : id,
-                'subject' : subject,
-                'data': data,
-                'eventType': typestr,
-                'eventTime': timestamp.isoformat(),
-                'dataVersion': 1
-            }
-        ]
-    
-    headers = { 'aeg-sas-key' : accesskey, 'Content-Type' : 'application/json' }
-    r = requests.post(endpoint, headers=headers, data=json.dumps(events))
-    
-    if 200 >= r.status_code < 300:
-        return True
-    else:
-        print("Failed.", r.text)
-        return False
-
-
 parser = argparse.ArgumentParser(description='Trigger an ironviper event')
 parser.add_argument('-t', '--type', help="The event type you want to post.")
 parser.add_argument('-s', '--subject', help="The event subject you want to post.")
 
 args = parser.parse_args()
-res = trigger_event(args.type, args.subject, None)
-
-exit(0) if res == True else exit(1)
+endpoint, accesskey = load_configuration()
+res = trigger_event(endpoint, accesskey, args.type, args.subject, None)
