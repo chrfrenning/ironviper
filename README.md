@@ -30,6 +30,12 @@ Current status is that resource provisioning (setup.sh) is working, and manual u
 1. Inspect the files+folder tables for fileinfo and metadata, pv-store to see output
 1. See url presented at end of setup for very naïve web ui
 
+## what you get
+
+If you're not diving into the tech itself, this is all you get at the moment:
+
+<img src="https://github.com/chrfrenning/ironviper/raw/main/docs/gridview.jpg" width=400>
+
 
 ## plan
 
@@ -49,4 +55,4 @@ Things I need help with on this project:
 
 ## me
 
-Made in ![Swiss Flag](https://chphno.blob.core.windows.net/ironviper-static/switzerland-flag-icon-16.png) by a ![Norwegian Flag](https://chphno.blob.core.windows.net/ironviper-static/norway-flag-icon-16.png). Inspired by the light in alps and fjords + love of quality, chocolate and great food.
+Made in ![Swiss Flag](https://chphno.blob.core.windows.net/ironviper-static/switzerland-flag-icon-16.png)+![Norwegian Flag](https://chphno.blob.core.windows.net/ironviper-static/norway-flag-icon-16.png) by a ![Norwegian Flag](https://chphno.blob.core.windows.net/ironviper-static/norway-flag-icon-16.png). Inspired by the light in alps and fjords + love of quality, chocolate and great food.
