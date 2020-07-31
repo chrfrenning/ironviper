@@ -31,10 +31,20 @@ Current status is that resource provisioning (setup.sh) is working, and manual u
 1. See url presented at end of setup for very naïve web ui
 
 
-### plan
+## plan
 
 
 1. Complete the Proof of Concept stage. BTW: All plans moved to the [PoC project here in GitHub](https://github.com/chrfrenning/ironviper/projects/1).
+
+For more information, [see the roadmap](https://github.com/chrfrenning/ironviper/wiki/Roadmap).
+
+## how to get involved
+
+Things I need help with on this project:
+
+1. I need to hear from photographers - enthustiasts and professionals alike to learn what you need and want
+1. Contributors to the project - ideas, UX, frontend, backend, testing - just about anything. [See details on how to contribute here.](https://github.com/chrfrenning/ironviper/wiki/Contributing-to-this-project)
+1. Consider [:coffee: donating coffee to keep me going ](https://www.buymeacoffee.com/chrfrenning).
 
 ## me
 
