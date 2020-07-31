@@ -26,7 +26,7 @@ Current status is that resource provisioning (setup.sh) is working, and manual u
     
 ```
 
-1. Upload some files using 'python tools/upload.py'
+1. Upload some files using 'python tools/upload.py' ([Alternative upload tools.](https://github.com/chrfrenning/ironviper/wiki/How-to-upload-files))
 1. Inspect the files+folder tables for fileinfo and metadata, pv-store to see output
 1. See url presented at end of setup for very naïve web ui
 
