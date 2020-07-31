@@ -3,8 +3,8 @@ import os
 import sys
 import toml
 import argparse
-sys.path.append(os.path.abspath('../libs/python'))
-from eventgrid import trigger_event
+sys.path.append(os.path.abspath(os.path.dirname(os.path.abspath(__file__))+'/../libs/python'))
+from eventgrid import post_event
 
 def load_configuration():
     configuration_file_name = os.path.dirname(os.path.abspath(__file__)) + "/../configuration.toml"
