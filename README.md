@@ -35,6 +35,7 @@ Current status is that resource provisioning (setup.sh) is working, and manual u
 
 
 1. Complete the Proof of Concept stage. BTW: All plans moved to the [PoC project here in GitHub](https://github.com/chrfrenning/ironviper/projects/1).
+2. Figure out if this is viable, and go-on or kill the project.
 
 For more information, [see the roadmap](https://github.com/chrfrenning/ironviper/wiki/Roadmap).
 
