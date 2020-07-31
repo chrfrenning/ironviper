@@ -25,4 +25,4 @@ parser.add_argument('-s', '--subject', help="The event subject you want to post.
 
 args = parser.parse_args()
 endpoint, accesskey = load_configuration()
-res = trigger_event(endpoint, accesskey, args.type, args.subject, None)
+res = post_event(endpoint, accesskey, args.type, args.subject, None)

@@ -3,7 +3,7 @@ import uuid
 import requests
 from datetime import datetime
 
-def trigger_event(endpoint, accesskey, typestr, subject, data={}):
+def post_event(endpoint, accesskey, typestr, subject, data={}):
     id = str(uuid.uuid4())
     timestamp = datetime.utcnow()
 
