@@ -14,7 +14,7 @@ Current status is that resource provisioning (setup.sh) is working, and manual u
 
 ## what you get
 
-If you're not diving into the tech itself, this is all you get at the moment:
+If you're not diving into the tech itself, this is all you get at the moment (a grid showing images in random order):
 
 <img src="https://github.com/chrfrenning/ironviper/raw/main/docs/gridview.jpg" width=400>
 
