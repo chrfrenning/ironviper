@@ -50,7 +50,7 @@ Things I need help with on this project:
 
 1. I need to hear from photographers - enthustiasts and professionals alike to learn what you need and want
 1. Contributors to the project - ideas, UX, frontend, backend, testing - just about anything. [See details on how to contribute here.](https://github.com/chrfrenning/ironviper/wiki/Contributing-to-this-project)
-1. Consider [:coffee: donating coffee to keep me going ](https://www.buymeacoffee.com/chrfrenning).
+1. Consider [:coffee: donating coffee to keep me going ](https://www.buymeacoffee.com/chrfrenning) or sending some Litecoin (LTC) to MUXFc3YiHwdNBjQ7CgF3hxK8c1szbL8etd.
 
 
 ## me
