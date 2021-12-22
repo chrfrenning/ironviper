@@ -1,4 +1,4 @@
-# a long one derived from https://itectec.com/ubuntu/ubuntu-how-to-install-delegate-libraries-for-image-magick-7-0-7/
+# a long one i found on the web
 sudo apt-get install autoconf automake autopoint autotools-dev build-essential chrpath \
 cm-super-minimal debhelper dh-autoreconf dh-exec dh-strip-nondeterminism doxygen \
 doxygen-latex dpkg-dev fonts-lmodern g++ g++-7 gcc gcc-7 gir1.2-harfbuzz-0.0 graphviz \
@@ -28,6 +28,9 @@ x11proto-xext-dev xorg-sgml-doctools xsltproc xtrans-dev zlib1g-dev
 # extra stuff i need
 sudo apt-get install libraw-dev dcraw
 sudo apt-get install libwebp-dev
+# ghostscript
+sudo apt install ghostscript
+sudo apt install libsgs-dev
 # build heic support
 git clone https://github.com/strukturag/libde265.git
 cd libde265/
@@ -48,6 +51,6 @@ cd ..
 # download and build imagick
 git clone https://github.com/ImageMagick/ImageMagick.git
 cd ImageMagick
-./configure
+./configure --with-gslib=yes
 make
 sudo make install
