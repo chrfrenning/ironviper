@@ -54,3 +54,7 @@ cd ImageMagick
 ./configure --with-gslib=yes
 make
 sudo make install
+
+
+# make libraries work
+sudo ldconfig /usr/local/lib
