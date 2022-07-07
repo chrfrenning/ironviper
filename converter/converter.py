@@ -21,6 +21,10 @@ from azure.storage.blob import ContentSettings
 from azure.cosmosdb.table.tableservice import TableService
 from azure.cosmosdb.table.models import Entity
 
+# Import common code libraries for ironviper, apologies for the path manipulation here
+sys.path.append(os.path.abspath(os.path.dirname(os.path.abspath(__file__))+'/../libs/python'))
+from eventgrid import post_event
+
 
 
 # #####################################################################
@@ -31,6 +35,8 @@ version = "202006300950"
 stopSignal = False
 debugMode = False
 debugDisableMessageDeque = False
+
+configuration = None
 
 
 
@@ -116,6 +122,54 @@ def create_thumbnails_mpr_optimized(filename):
     thumbs =  [ "/tmp/1600.jpg", "/tmp/800.jpg", "/tmp/600.jpg", "/tmp/200.jpg", "/tmp/100.jpg" ]
     return thumbs
 
+
+
+def create_thumbnails_mpr_optimized_new(filename):
+    start = time.time()
+    
+    # var = "convert /tmp/b6b262a33e594b99b2375f6b1b96d72d.jpg -resize '1600x>' -quality 80 -interlace Plane 
+    # -strip -write mpr:main +delete mpr:main -write ./1600.jpg +delete mpr:main -resize '800x>' 
+    # -quality 80 -interlace Plane -strip ./800.jpg"
+    
+    # convert /tmp/85e22e088eba4bdc889338d2eeee261e.jpg -resize '1600x>' -quality 80 -interlace Plane -strip -write mpr:main +delete 
+    # mpr:main -write 1600.jpg +delete 
+    # mpr:main -thumbnail '100x100' 100.jpg
+
+    # we're letting imagemagick read and rotate image, writing to memory (mpr:main)
+    # from this copy we're producing the smaller versions we need
+
+    # here's our spec for conversions, this is from create_th_classic
+    # os.system("convert {} -resize '1920x1080' -auto-orient -quality 90 -interlace Plane -strip /tmp/hd.jpg".format(filename))
+    # os.system("convert {} -resize '1600x1600' -auto-orient -quality 80 -interlace Plane -strip /tmp/1600.jpg".format(filename))
+    # os.system("convert {} -resize '800x800' -auto-orient -quality 80 -interlace Plane -strip /tmp/800.jpg".format(filename))
+    # os.system("convert {} -resize '600x600' -auto-orient -quality 80 -interlace Plane -strip /tmp/600.jpg".format(filename))
+    # os.system("convert {} -resize '400x400' -auto-orient -quality 80 -interlace Plane -strip /tmp/400.jpg".format(filename))
+    # os.system("convert {} -resize 'x400' -auto-orient -quality 80 -interlace Plane -strip /tmp/h400.jpg".format(filename))
+    # os.system("convert {} -resize '400x' -auto-orient -quality 80 -interlace Plane -strip /tmp/w400.jpg".format(filename))
+    # os.system("convert {} -resize '200x200' -auto-orient -quality 80 -interlace Plane -strip /tmp/200.jpg".format(filename))
+    # os.system("convert {} -thumbnail '100x100' -auto-orient /tmp/100.jpg".format(filename))
+    # os.system("convert {} -thumbnail 100x100^ -gravity center -extent 100x100 -auto-orient /tmp/sq100.jpg".format(filename))
+    #
+    # this is most likely too many versions, and in too small resolutions. Consider an iphone screen to be ~2500x2500 pixels today
+    # however, a reason to send smaller images is both available bandwidth on the client side (think 4G or worse, hotel wifi)
+    # 
+    # TODO: No reason to upsize images that are smaller than the resolutions we need. We need to both identify this
+    # and handle throughout the system to pick the best possible resolution. Also consider graphics with transparency
+    # should be rendered on a surface that identifies them as such.
+
+    os.system("convert {} -resize '1600x>' -quality 80 -interlace Plane -strip -write mpr:main +delete" \
+        " mpr:main -write /tmp/1600.jpg +delete" \
+        " mpr:main -resize '800x>' -quality 80 -interlace Plane -strip -write /tmp/800.jpg +delete" \
+        " mpr:main -resize '600x>' -quality 80 -interlace Plane -strip -write /tmp/600.jpg +delete" \
+        " mpr:main -resize '200x>' -quality 80 -interlace Plane -strip -write /tmp/200.jpg +delete" \
+        " mpr:main -thumbnail '100x100' /tmp/100.jpg".format(filename))
+
+    print "create_thumbnails_mpr_optimized completed in {} seconds".format(time.time() - start)
+    
+    thumbs =  [ "/tmp/1600.jpg", "/tmp/800.jpg", "/tmp/600.jpg", "/tmp/200.jpg", "/tmp/100.jpg" ]
+    return thumbs
+
+    
 
 
 def create_thumbnails(filename):
@@ -208,6 +262,26 @@ def download_blob(url, account_key):
 
 # #####################################################################
 #
+# Event handling
+#
+
+def post_new_file_event(file_record):
+    try:
+        pass
+    except Exception as ex:
+        print("Cannot post new file event " + ex.message)
+
+
+def post_new_folder_event(folder_record):
+    try:
+        pass
+    except Exception as ex:
+        print("Cannot post new folder event " + ex.message)
+
+
+
+# #####################################################################
+#
 # Record handling
 #
 
@@ -248,6 +322,8 @@ def create_file_record(url, unique_id, partition_key, short_id, name, extension,
     file_record['item_type'] = 'file'
     table_service.insert_or_replace_entity('folders', file_record)
 
+    post_new_file_event(file_record)
+
     # Ensure we have folder records for the entire path
     # TODO: Optimization; Check if the final folder exists, if so, skip step (we know all higher level paths have been created too)
     
@@ -278,6 +354,7 @@ def create_file_record(url, unique_id, partition_key, short_id, name, extension,
         # try a merge operation (that should work unless service is down)
         try:
             table_service.insert_entity('folders', folder_record)
+            post_new_folder_event(folder_record)
         except:
             folder_record.pop('created_time')
             table_service.insert_or_merge_entity('folders', folder_record)
@@ -648,6 +725,8 @@ def load_configuration():
 
     cloud_instance_name = None
     account_key = None
+    event_endpoint = None
+    event_key = None
 
     if os.getenv('INSTANCE_NAME', 'n/a') == 'n/a':
         print "Container envirnoment variable not found, trying to load settings from config file"
@@ -659,9 +738,13 @@ def load_configuration():
         # Read configuration parameters
         cloud_instance_name = configuration["instance_name"]
         account_key = configuration["storage_key"] 
+        event_endpoint = configuration["eventgrid_endpoint"] 
+        event_key = configuration["eventgrid_key"] 
     else:
         cloud_instance_name = os.environ['INSTANCE_NAME']
-        account_key = os.environ["ACCOUNT_KEY"] 
+        account_key = os.environ["STORAGE_KEY"] 
+        event_endpoint = os.environ["EVENT_ENDPOINT"] 
+        event_key = os.environ["EVENT_KEY"] 
 
     return cloud_instance_name, account_key
 
