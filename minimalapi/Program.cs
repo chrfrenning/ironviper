@@ -66,18 +66,18 @@ app.MapGet("/i/{id}", (string id) => {
 app.Run();
     
 Folder CreateTestFolderTree() {
+    
     Folder root = new Folder("/");
 
-    root.Children.Add( new Folder("aja") );
-    root.Children.Add( new Folder("chris") );
-    root.Children.Add( new Folder("jacob") );
+    root.AddChild( new Folder("aja") );
+    root.AddChild( new Folder("chris") );
+    root.AddChild( new Folder("jacob") );
 
-    Folder julia = new Folder("julia");
-    root.Children.Add( julia );
-    julia.Children.Add( new Folder("julia-1") );
-    julia.Children.Add( new Folder("julia-2") );
+    Folder julia = root.AddChild( new Folder("julia") );
+    julia.AddChild( new Folder("julia-1") );
+    julia.AddChild( new Folder("julia-2") );
 
-    root.Children.Add( new Folder("seb") );
+    root.AddChild( new Folder("seb") );
 
     return root;
 }
