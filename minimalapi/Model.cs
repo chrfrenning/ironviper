@@ -10,26 +10,44 @@ class Folder {
     public Folder() {
         this.Id = String.Empty;
         this.Name = String.Empty;
+        this.Description = String.Empty;
         this.Children = new List<Folder>();
     }
     public Folder(string name) {
         this.Id = CreateFolderUniqueId();
         this.Name = name;
+        this.Description = String.Empty;
         this.Children = new List<Folder>();
     }
 
     public Folder(string id, string name) {
         this.Id = id;
         this.Name = name;
+        this.Description = String.Empty;
         this.Children = new List<Folder>();
     }
 
     public string Id { get; set; }
     public string Name { get; set; }
+    [JsonIgnore] public string Path { get { 
+        if ( this.Parent == null ) // we're root
+            return "/";
+        else {
+            string path = "/" + this.Name;
+            Folder? node = this.Parent;
+            while ( node != null ) {
+                path = node.Parent != null ? "/" + node.Name + path : path;
+                node = node.Parent;
+            }
+            return path;
+        }
+    } }
     [JsonIgnore] public string? ParentId { get; set; }
     [JsonIgnore] public List<Folder> Children { get; set; }
 
     [JsonIgnore] public Folder? Parent { get; set; }
+    public Boolean HasChildren { get { return this.Children.Count > 0; } }
+    public string Description { get; set; }
 
     public Folder GetRoot() {
         Folder current = this;
@@ -49,6 +67,7 @@ class Folder {
 
         this.Children.Add(child);
         this.Children.Sort((a, b) => a.Name.CompareTo(b.Name));
+
         return child;
     }
 
@@ -107,7 +126,7 @@ class Folder {
         return node;
     }
 
-    public static Folder CreateFolder(Folder parent, string path) {
+    public static Folder CreateFolder(Folder parent, string path, string connectionString) {
         Debug.Assert(parent != null);
         Debug.Assert(path != null && path.Length > 0);
 
@@ -127,11 +146,24 @@ class Folder {
             if (child == null) {
                 child = new Folder(part);
                 parent.AddChild(child);
+                InsertFolderIntoAzureTable(parent, child, connectionString);
             }
             parent = child;
         }
 
         return parent; // this is now the new child
+    }
+
+    private static void InsertFolderIntoAzureTable(Folder parent, Folder child, string connectionString) {
+        // Write new folder into Azure table
+        var serviceClient = new TableServiceClient(connectionString);
+        var tableClient = serviceClient.GetTableClient("forest");
+        FolderEntity newEntity = new FolderEntity();
+        newEntity.PartitionKey = "folder";
+        newEntity.RowKey = child.Id;
+        newEntity.Parent = parent.Id;
+        newEntity.Name = child.Name;
+        tableClient.UpsertEntity(newEntity);
     }
 
     public static bool CanDeleteFolder(Folder folder) {
@@ -172,7 +204,7 @@ class Folder {
     }
 
     public static Folder LoadModelFromTable(string connectionString) {
-        const string TABLENAME = "tree";
+        const string TABLENAME = "forest";
         const string PARTITION_KEY = "folder";
 
         // read from azure table
@@ -216,6 +248,25 @@ class Folder {
             AddChildFolders(folder, allfolders);
         }
     }
+
+    public List<File> ListAllFiles(string connectionString) {
+        const string TABLENAME = "folders";
+
+        // read from azure table
+        var serviceClient = new TableServiceClient(connectionString);
+        var tableClient = serviceClient.GetTableClient(TABLENAME);
+        var results = tableClient.Query<FileInFolderEntity>(filter: $"PartitionKey eq '{this.Id}'");
+
+        // the database may be empty, so then just imitate a root folder
+        List<FileInFolderEntity> allfiles = results.ToList<FileInFolderEntity>();
+
+        // create root, update with info from db
+        List<File> files = new List<File>(allfiles.Count());
+        foreach (var file in allfiles) {
+            files.Add(new File(file.RowKey, file.name));
+        }
+        return files;
+    }
 };
 
 class FolderEntity : ITableEntity {
@@ -239,7 +290,7 @@ class FolderEntity : ITableEntity {
 
 class FileInFolderEntity : ITableEntity {
     public FileInFolderEntity() {
-        this.PartitionKey = this.RowKey = String.Empty;
+        this.PartitionKey = this.RowKey = this.name = String.Empty;
         this.Timestamp = DateTime.Now;
         this.ETag = new ETag();
     }
@@ -247,6 +298,7 @@ class FileInFolderEntity : ITableEntity {
     public string RowKey { get; set; }
     public DateTimeOffset? Timestamp { get; set; }
     public ETag ETag { get; set; }
+    public string name { get; set; }
 };
 
 class FileEntity : ITableEntity
