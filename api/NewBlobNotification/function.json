@@ -1,19 +1,10 @@
 {
   "bindings": [
     {
-      "authLevel": "anonymous",
-      "type": "httpTrigger",
+      "type": "eventGridTrigger",
       "direction": "in",
-      "name": "req",
-      "methods": [
-        "get",
-        "post"
-      ]
-    },
-    {
-      "type": "http",
-      "direction": "out",
-      "name": "res"
+      "name": "eventGridEvent"
     }
-  ]
+  ],
+  "disabled": false
 }
