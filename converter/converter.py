@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python3
 
 import sys
 import json
@@ -13,7 +13,7 @@ import random
 import subprocess
 import hashlib
 import shortuuid
-from urlparse import urlparse
+from urllib.parse import urlparse
 from azure.storage.queue import QueueClient
 from azure.storage.blob import BlobServiceClient
 from azure.storage.blob import BlobClient
@@ -22,7 +22,7 @@ from azure.cosmosdb.table.tableservice import TableService
 from azure.cosmosdb.table.models import Entity
 
 # Import common code libraries for ironviper, apologies for the path manipulation here
-sys.path.append(os.path.abspath(os.path.dirname(os.path.abspath(__file__))+'/../libs/python'))
+# sys.path.append(os.path.abspath(os.path.dirname(os.path.abspath(__file__))+'/../libs/python'))
 from eventgrid import post_event
 
 
@@ -59,7 +59,7 @@ def create_thumbnails_classic(filename):
     os.system("convert {} -thumbnail '100x100' -auto-orient /tmp/100.jpg".format(filename))
     os.system("convert {} -thumbnail 100x100^ -gravity center -extent 100x100 -auto-orient /tmp/sq100.jpg".format(filename))
 
-    print "create_thumbnails_classic completed in {} seconds".format(time.time() - start)
+    print("create_thumbnails_classic completed in {} seconds".format(time.time() - start))
 
     thumbs =  [ "/tmp/sq100.jpg", "/tmp/w400.jpg", "/tmp/h400.jpg", "/tmp/hd.jpg", "/tmp/1600.jpg", "/tmp/800.jpg", "/tmp/600.jpg", "/tmp/400.jpg", "/tmp/200.jpg", "/tmp/100.jpg" ]
     return thumbs
@@ -76,7 +76,7 @@ def create_thumbnails_classic_optimized(filename):
     os.system("convert /tmp/800.jpg -resize '200>' -quality 80 -interlace Plane -strip /tmp/200.jpg".format(filename))
     os.system("convert /tmp/800.jpg -thumbnail '100x100' /tmp/100.jpg".format(filename))
 
-    print "create_thumbnails_classic_optimized completed in {} seconds".format(time.time() - start)
+    print( "create_thumbnails_classic_optimized completed in {} seconds".format(time.time() - start))
 
     thumbs =  [ "/tmp/1600.jpg", "/tmp/800.jpg", "/tmp/600.jpg", "/tmp/200.jpg", "/tmp/100.jpg" ]
     return thumbs
@@ -93,7 +93,7 @@ def create_thumbnails_mpr(filename):
         " mpr:main -resize \"200x>\" -quality 80 -interlace Plane -strip -write /tmp/200.jpg +delete" \
         " mpr:main -thumbnail \"100x100\" -write /tmp/100.jpg null:".format(filename))
     
-    print "create_thumbnails_mpr completed in {} seconds".format(time.time() - start)
+    print( "create_thumbnails_mpr completed in {} seconds".format(time.time() - start))
     
     thumbs =  [ "/tmp/1600.jpg", "/tmp/800.jpg", "/tmp/600.jpg", "/tmp/200.jpg", "/tmp/100.jpg" ]
     return thumbs
@@ -117,7 +117,7 @@ def create_thumbnails_mpr_optimized(filename):
         " mpr:main -resize '200x>' -quality 80 -interlace Plane -strip -write /tmp/200.jpg +delete" \
         " mpr:main -thumbnail '100x100' /tmp/100.jpg".format(filename))
 
-    print "create_thumbnails_mpr_optimized completed in {} seconds".format(time.time() - start)
+    print( "create_thumbnails_mpr_optimized completed in {} seconds".format(time.time() - start))
     
     thumbs =  [ "/tmp/1600.jpg", "/tmp/800.jpg", "/tmp/600.jpg", "/tmp/200.jpg", "/tmp/100.jpg" ]
     return thumbs
@@ -164,7 +164,7 @@ def create_thumbnails_mpr_optimized_new(filename):
         " mpr:main -resize '200x>' -quality 80 -interlace Plane -strip -write /tmp/200.jpg +delete" \
         " mpr:main -thumbnail '100x100' /tmp/100.jpg".format(filename))
 
-    print "create_thumbnails_mpr_optimized completed in {} seconds".format(time.time() - start)
+    print ("create_thumbnails_mpr_optimized completed in {} seconds".format(time.time() - start))
     
     thumbs =  [ "/tmp/1600.jpg", "/tmp/800.jpg", "/tmp/600.jpg", "/tmp/200.jpg", "/tmp/100.jpg" ]
     return thumbs
@@ -173,7 +173,7 @@ def create_thumbnails_mpr_optimized_new(filename):
 
 
 def create_thumbnails(filename):
-    print "Creating thumbnails"
+    print( "Creating thumbnails")
 
     # TODO: When done with v-max and h-max variants, revert to using mpr-optimized function
     
@@ -200,7 +200,7 @@ def upload_blob(filename, url, account_key, inlineFlag=False):
 
     try:
         bc.get_blob_properties()
-        print "Blob {} already exists, deleting".format(url)
+        print( "Blob {} already exists, deleting".format(url))
         bc.delete_blob()
     except:
         None
@@ -213,7 +213,7 @@ def upload_blob(filename, url, account_key, inlineFlag=False):
         settings = ContentSettings(content_type="image/jpeg", content_disposition="inline")
         bc.upload_blob(data, blob_type="BlockBlob", content_settings=settings)
 
-    print "Uploaded {} in {} seconds".format(filename, time.time()-start)
+    print( "Uploaded {} in {} seconds".format(filename, time.time()-start))
 
 
 
@@ -224,11 +224,11 @@ def upload_thumbnails(thumbs, instance_name, account_key, short_id):
         try:
             qualifier = t[t.rfind('/')+1:]
             url = "https://{}.blob.core.windows.net/pv-store/{}_{}".format(instance_name, short_id, qualifier)
-            print "Uploading: " + t + " to " + url
+            print( "Uploading: " + t + " to " + url)
             upload_blob(t, url, account_key, inlineFlag=True)
             th_url_list.append(url)
         except Exception as ex:
-            print "Failed to upload " + t + ": " + ex.message
+            print( "Failed to upload " + t + ": " + ex.message)
 
     return th_url_list
 
@@ -241,20 +241,20 @@ def upload_thumbnails(thumbs, instance_name, account_key, short_id):
 
 def download_blob(url, account_key):
     bc = BlobClient.from_blob_url(url, account_key)
-    #print bc.get_blob_properties()
+    #print( bc.get_blob_properties())
 
     tempFileName = "/tmp/" + uuid.uuid4().hex + ".jpg"
-    print "Using temp file " + tempFileName
+    print( "Using temp file " + tempFileName)
 
     try:
         start = time.time()
-        print "Downloading " + url
+        print( "Downloading " + url)
         with open(tempFileName, "wb") as my_blob:
             download_stream = bc.download_blob(None, None)
             my_blob.write(download_stream.readall())
-        print "Download completed in {} seconds".format(time.time() - start)
+        print( "Download completed in {} seconds".format(time.time() - start))
     except Exception as ex:
-        print "Error downloading blob: " + ex.message
+        print( "Error downloading blob: " + ex.message)
         
     return tempFileName
 
@@ -313,7 +313,7 @@ def create_file_record(url, unique_id, partition_key, short_id, name, extension,
     table_service = TableService(account_name=instance_name, account_key=account_key)
     table_service.insert_or_replace_entity('files', file_record)
 
-    print "file_record inserted in {} sec".format(time.time()-start)
+    print( "file_record inserted in {} sec".format(time.time()-start))
 
     # Change record to folder facing
     # TODO: Strip large metadata blocks and keep info needed for UIs
@@ -382,11 +382,11 @@ def identify_image(file_name):
         start = time.time()
         cmd = "identify -ping -format \"%m\" {}".format(file_name)
         output = subprocess.check_output(cmd, shell=True)
-        print "File {} identified as: ".format(file_name), output
-        print "identify_image completed in ", time.time()-start
+        print( "File {} identified as: ".format(file_name), output)
+        print( "identify_image completed in ", time.time()-start)
         return output
     except CalledProcessError as ex:
-        print "Error identifying image: ", ex.message
+        print( "Error identifying image: ", ex.message)
         return None
 
 
@@ -395,10 +395,10 @@ def extract_exif(file_name):
         start = time.time()
         cmd = "convert -ping {} json:".format(file_name)
         output = subprocess.check_output(cmd, shell=True)
-        print "extract_exif completed in ", time.time()-start
+        print( "extract_exif completed in ", time.time()-start)
         return output
     except CalledProcessError as ex:
-        print "Error extracting exif information from: ", ex.message
+        print( "Error extracting exif information from: ", ex.message)
         return None
 
 
@@ -408,10 +408,10 @@ def extract_xmp(file_name):
         start = time.time()
         cmd = "convert -ping {} XMP:-".format(file_name)
         output = subprocess.check_output(cmd, shell=True)
-        print "extract_xmp completed in ", time.time()-start
+        print( "extract_xmp completed in ", time.time()-start)
         return output
     except CalledProcessError as ex:
-        print "Error extracting xmp data from: ", ex.message
+        print( "Error extracting xmp data from: ", ex.message)
         return None
 
 
@@ -432,8 +432,8 @@ def create_file_checksums(file_name):
             md5.update(data)
             sha256.update(data)
 
-    print "checksums: md5(", md5.hexdigest(), "), sha256(", sha256.hexdigest(), ")"
-    print "create_file_checksums completed in {} seconds".format(time.time()-start)
+    print( "checksums: md5(", md5.hexdigest(), "), sha256(", sha256.hexdigest(), ")")
+    print( "create_file_checksums completed in {} seconds".format(time.time()-start))
     return md5.hexdigest(), sha256.hexdigest()
 
 
@@ -452,30 +452,30 @@ def _handle_image_generic(url, unique_id, partition_key, short_id, temporary_fil
         
         xmp = None
         if "image" in exif and "profiles" in exif["image"] and "xmp" in exif["image"]["profiles"]:
-            print "Xmp identified, extracting from file ", temporary_file_name
+            print ("Xmp identified, extracting from file ", temporary_file_name)
             xmp = extract_xmp(temporary_file_name)
         else:
-            print "Exif did not indicate app1/xmp data in file ", temporary_file_name
+            print( "Exif did not indicate app1/xmp data in file ", temporary_file_name)
 
         # file haz iptc?
 
         if "image" in exif and "profiles" in exif["image"] and "iptc" in exif["image"]["profiles"]:
-            print "File has iptc metadata, fyi only, not extracting in file ", temporary_file_name
+            print( "File has iptc metadata, fyi only, not extracting in file ", temporary_file_name)
 
         # render previews
 
         thumbs = create_thumbnails(temporary_file_name)
-        print "Thumbnails created: {}".format(thumbs)
+        print( "Thumbnails created: {}".format(thumbs))
         url_list = upload_thumbnails(thumbs, instance_name, account_key, short_id)
 
         # calculate checksums
 
-        print "Calculating checksums of original file"
+        print( "Calculating checksums of original file")
         md5, sha256 = create_file_checksums(temporary_file_name)
 
         # done the work, create the file record
 
-        print "Creating master file record"
+        print( "Creating master file record")
         create_file_record(url, unique_id, partition_key, short_id, name, extension, relative_path, exifString, xmp, url_list, md5, sha256, instance_name, account_key)
 
     finally:
@@ -498,7 +498,7 @@ def handle_jpeg_image(url, unique_id, partition_key, short_id, temporary_file_na
         _handle_image_generic(url, unique_id, partition_key, short_id, temporary_file_name, name, extension, relative_path, instance_name, account_key)
 
     except Exception as ex:
-        print "handle_image exception: ", ex.message
+        print ("handle_image exception: ", ex.message)
         raise ex
         # TODO: if we fail here, consider tainted and ask infra to recycle container?
         # can do by setting global stopSignal = True or using exit(), unsure of best approach
@@ -512,17 +512,17 @@ def handle_generic_file(url, unique_id, partition_key, short_id, temporary_file_
     try:
         # calculate checksums
 
-        print "Calculating checksums of original file"
+        print( "Calculating checksums of original file")
         md5, sha256 = create_file_checksums(temporary_file_name)
 
         # done the work, create the file record
 
-        print "Creating master file record"
+        print( "Creating master file record")
         create_file_record(url, unique_id, partition_key, short_id, name, extension, relative_path, None, None, None, md5, sha256, instance_name, account_key)
 
 
     except Exception as ex:
-        print "handle_generic_file exception: ", ex.message
+        print( "handle_generic_file exception: ", ex.message)
         raise ex
 
 
@@ -546,7 +546,7 @@ def create_orphan_record(url, unique_id, partition_key, short_id, instance_name,
     start = time.time()
     utcnow = datetime.datetime.utcnow().isoformat()
 
-    print "Creating orphan record"
+    print( "Creating orphan record")
 
     # Each ingested (and successfully processed) file has a unique record containing
     # information, list of previews, 
@@ -561,7 +561,7 @@ def create_orphan_record(url, unique_id, partition_key, short_id, instance_name,
     table_service = TableService(account_name=instance_name, account_key=account_key)
     table_service.insert_or_replace_entity('orphans', orphan_record)
 
-    print "orphan_record inserted in {} sec".format(time.time()-start)
+    print( "orphan_record inserted in {} sec".format(time.time()-start))
 
 
 
@@ -571,7 +571,7 @@ def delete_orphan_record(partition_key, short_id, instance_name, account_key):
     table_service = TableService(account_name=instance_name, account_key=account_key)
     table_service.delete_entity('orphans', partition_key, short_id)
 
-    print "delete_orphan_record completed in {} sec".format(time.time()-start)
+    print( "delete_orphan_record completed in {} sec".format(time.time()-start))
 
 
 
@@ -582,7 +582,7 @@ def handle_new_file(url, name, relative_path, extension, instance_name, account_
     partition_key = shortuuid.random(length=3)
     short_id = partition_key + '-' + shortuuid.random(length=7)
 
-    print "Unique ids: unique_id: {}, partition_key: {}, short_id: {}".format(unique_id, partition_key, short_id)
+    print( "Unique ids: unique_id: {}, partition_key: {}, short_id: {}".format(unique_id, partition_key, short_id))
 
     # create orphan record in case the ingestion process breaks
     # the orphan record will be used to clean up any stray data in case we cannot
@@ -605,7 +605,7 @@ def handle_new_file(url, name, relative_path, extension, instance_name, account_
         if extension == "jpg" or extension == "jpeg":
             handle_jpeg_image(url, unique_id, partition_key, short_id, tempFileName, name, extension, relative_path, instance_name, account_key)
         else:
-            print "Don't recognize extension, handling as generic file"
+            print( "Don't recognize extension, handling as generic file")
             handle_generic_file(url, unique_id, partition_key, short_id, tempFileName, name, extension, relative_path, instance_name, account_key)
     except FileTypeValidationException as ftvex:
         # TODO: Mark file as invalid in table, alt treat as generic file type
@@ -632,7 +632,7 @@ def handle_deleted_file(url, name, extension, instance_name, account_key):
 
 def handle_message(json_message, instance_name, account_key):
     url = json_message["data"]["url"]
-    print "Starting file processing of " + url
+    print( "Starting file processing of " + url)
 
     # parse url
 
@@ -647,12 +647,12 @@ def handle_message(json_message, instance_name, account_key):
     if len(relative_path) == 0:
         relative_path = "/"
 
-    print "Pathinfo: " + fn + ", " + name + ", " + extension + "," + relative_path
+    print( "Pathinfo: " + fn + ", " + name + ", " + extension + "," + relative_path)
 
     # type of message?
     
     event_type = json_message["eventType"]
-    print "Event type: ", event_type
+    print( "Event type: ", event_type)
 
     if event_type == "Microsoft.Storage.BlobDeleted":
         handle_deleted_file(url, name, extension, instance_name, account_key)
@@ -662,7 +662,7 @@ def handle_message(json_message, instance_name, account_key):
         if debugMode == True:
             raise Exception("Unknown event type ({}).".format(event_type))
         else:
-            print "Unknown event type ({}), ignoring message and deleting.".format(event_type)
+            print( "Unknown event type ({}), ignoring message and deleting.".format(event_type))
 
 
 
@@ -688,17 +688,17 @@ def dequeue_messages(config_instance_name, config_account_key):
             if debugDisableMessageDeque == False:
                 queue_service.delete_message(msg)
             else:
-                print "Debug mode, not removing message from queue."
+                print( "Debug mode, not removing message from queue.")
 
-            print "Message handled in {} seconds.".format(time.time()-start)
+            print( "Message handled in {} seconds.".format(time.time()-start))
             messages_handled += 1
 
             if stopSignal == True:
                 return messages_handled
 
         except Exception as ex:
-            print "Error handling message ({})".format(msg.content)
-            print "Exception: " + ex.message
+            print( "Error handling message ({})".format(msg.content))
+            print( "Exception: " + ex.message)
 
         finally:
             # something on every iteration?
@@ -729,7 +729,7 @@ def load_configuration():
     event_key = None
 
     if os.getenv('INSTANCE_NAME', 'n/a') == 'n/a':
-        print "Container envirnoment variable not found, trying to load settings from config file"
+        print( "Container envirnoment variable not found, trying to load settings from config file")
 
         # Load config to know where to talk
         configuration_file_name = os.path.dirname(os.path.abspath(__file__)) + "/../configuration.toml"
@@ -783,7 +783,7 @@ def main():
         print("Not dequeuing messages, infinite loop coming up.")
 
     # Shut me down with sigterm
-    print "New file handling worker started, pid is ", os.getpid(), " send sigterm with 'kill -{} <pid>' or CTRL-C to stop me gracefully.".format(signal.SIGTERM)
+    print( "New file handling worker started, pid is ", os.getpid(), " send sigterm with 'kill -{} <pid>' or CTRL-C to stop me gracefully.".format(signal.SIGTERM))
     signal.signal(signal.SIGTERM, receiveSigTermSignal)
     signal.signal(signal.SIGINT, receiveSigTermSignal)
 
@@ -796,7 +796,7 @@ def main():
 
     try:
         while True:
-            print "Polling queue..."
+            print( "Polling queue...")
             messages_handled = dequeue_messages(cloud_instance_name, account_key)
 
             if stopSignal == True:
@@ -809,18 +809,18 @@ def main():
             else:
                 max_seconds = 60*2
                 if time.time() - last_message_handled > max_seconds and not debugMode: # 5 minutes delay maximum
-                    print "Idle for more than {} minutes, shutting down converter process".format(max_seconds/60)
+                    print( "Idle for more than {} minutes, shutting down converter process".format(max_seconds/60))
                     exit(0)
 
             # Wait a random time before checking again
             time.sleep( random.randrange(1,3) )
 
     except Exception as ex:
-        print "An error occurred during message management. " + ex.message
+        print( "An error occurred during message management. " + ex.message)
         exit(1)
 
 
 
 if __name__ == "__main__":
-    print "Version: ironviper/{}".format(version)
+    print( "Version: ironviper/{}".format(version))
     main()
