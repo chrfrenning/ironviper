@@ -18,7 +18,7 @@ from azure.storage.queue import QueueClient
 from azure.storage.blob import BlobServiceClient
 from azure.storage.blob import BlobClient
 from azure.storage.blob import ContentSettings
-from azure.cosmosdb.table.tableservice import TableService
+from azure.cosmosdb.table.tableservice import TableService # replace with azure-data-tables? https://docs.microsoft.com/en-us/python/api/overview/azure/data-tables-readme?view=azure-python
 from azure.cosmosdb.table.models import Entity
 
 # Import common code libraries for ironviper, apologies for the path manipulation here
@@ -34,6 +34,7 @@ from eventgrid import post_event
 version = "202006300950"
 stopSignal = False
 debugMode = False
+prodMode = False
 debugDisableMessageDeque = False
 
 configuration = None
@@ -239,11 +240,11 @@ def upload_thumbnails(thumbs, instance_name, account_key, short_id):
 # Blob download management
 #
 
-def download_blob(url, account_key):
+def download_blob(url, extension, account_key):
     bc = BlobClient.from_blob_url(url, account_key)
     #print( bc.get_blob_properties())
 
-    tempFileName = "/tmp/" + uuid.uuid4().hex + ".jpg"
+    tempFileName = "/tmp/" + uuid.uuid4().hex + "." + extension
     print( "Using temp file " + tempFileName)
 
     try:
@@ -384,7 +385,7 @@ def identify_image(file_name):
         output = subprocess.check_output(cmd, shell=True)
         print( "File {} identified as: ".format(file_name), output)
         print( "identify_image completed in ", time.time()-start)
-        return output
+        return output.decode()
     except CalledProcessError as ex:
         print( "Error identifying image: ", ex.message)
         return None
@@ -396,7 +397,7 @@ def extract_exif(file_name):
         cmd = "convert -ping {} json:".format(file_name)
         output = subprocess.check_output(cmd, shell=True)
         print( "extract_exif completed in ", time.time()-start)
-        return output
+        return output.decode()
     except CalledProcessError as ex:
         print( "Error extracting exif information from: ", ex.message)
         return None
@@ -409,7 +410,7 @@ def extract_xmp(file_name):
         cmd = "convert -ping {} XMP:-".format(file_name)
         output = subprocess.check_output(cmd, shell=True)
         print( "extract_xmp completed in ", time.time()-start)
-        return output
+        return output.decode()
     except CalledProcessError as ex:
         print( "Error extracting xmp data from: ", ex.message)
         return None
@@ -599,7 +600,7 @@ def handle_new_file(url, name, relative_path, extension, instance_name, account_
     # TODO: use identify -verbose <fn> to get info on file and validate
     # TODO: extract exif and xmp metadata
 
-    tempFileName = download_blob(url, account_key)
+    tempFileName = download_blob(url, extension, account_key)
 
     try:
         if extension == "jpg" or extension == "jpeg":
@@ -780,7 +781,16 @@ def main():
     if os.environ.get("DISABLEDEQUES", "0") == "1":
         global debugDisableMessageDeque
         debugDisableMessageDeque = True
-        print("Not dequeuing messages, infinite loop coming up.")
+        print("Not dequeuing messages, infinite loop coming up :)")
+
+    if os.environ.get("PRODUCTION", "0") == "1":
+        global prodMode
+        prodMode = True
+        print("Running in Production mode")
+
+    if prodMode == False and debugMode == False:
+        print("Neither PRODUCTION=1 nor DEBUG=1 environment variables set; stopping.")
+        exit(1)
 
     # Shut me down with sigterm
     print( "New file handling worker started, pid is ", os.getpid(), " send sigterm with 'kill -{} <pid>' or CTRL-C to stop me gracefully.".format(signal.SIGTERM))
