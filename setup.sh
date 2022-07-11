@@ -29,6 +29,7 @@ echo -e "${G}Version: 2020-07-27-4"
 
 noclone=0
 devmode=0
+prodmode=0
 
 while test $# -gt 0
 do
@@ -41,6 +42,10 @@ do
             echo "--development mode parameter set"
             devmode=1
             ;;
+        --production) 
+            echo "--production mode parameter set (default)"
+            prodmode=1
+            ;;
         --*) 
             echo "bad option $1"
             exit 1
@@ -52,6 +57,15 @@ do
     esac
     shift
 done
+
+#if [ $devmode -eq 0 ]
+#then
+#    if [ $prodmode -eq 0 ]
+#    then
+#        echo "You must set either --development or --production mode."
+#        exit 1
+#    fi
+#fi
 
 
 
@@ -167,7 +181,8 @@ az role assignment create --role Contributor --assignee-object-id $clientId --as
 
 
 # Create pubsub service for realtime communications
-az extension add --upgrade --name webpubsub
+echo -e "${Y}Creating pubsub service for realtime comms...${NC}"
+az extension add --upgrade --name webpubsub >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 az webpubsub create --name $rgn --resource-group $rgn --location $location --sku Free_F1 >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 pubsuburl=$(az webpubsub show --name $rgn --resource-group $rgn --query hostName --output tsv)
 pubsubconn=$(az webpubsub key show --name $rgn --resource-group $rgn --query primaryConnectionString --output tsv)
@@ -177,7 +192,7 @@ echo "pubsub_conn" = \"$pubsubconn\" >> ./configuration.toml
 # Create storage account
 # This is used to store files, previews, our static website, functions sync files, etc
 
-echo -e "${Y}Creating storage...${NC}"
+echo -e "${Y}Creating storage account...${NC}"
 az storage account create -n $rgn -g $rgn --sku "Standard_LRS" --location $location --kind "StorageV2" --access-tier "Hot" >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 
 storageKey=$(az storage account keys list -n $rgn -g $rgn --query "[?keyName=='key1'].value" -o tsv)
@@ -188,7 +203,7 @@ storageConnectionString=$(az storage account show-connection-string -n $rgn --qu
 az keyvault secret set --vault-name $rgn --name "storage-connstr" --value "$storageConnectionString" >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 echo "storage_connstr = \"$storageConnectionString\"" >> ./configuration.toml
 
-echo -e "${Y}Creating storage...${NC}"
+echo -e "${Y}Creating containers, tables, and queues...${NC}"
 az storage share create -n $rgn --account-name $rgn --account-key $storageKey --quota 5120 >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 az storage container create --account-name $rgn --name "file-store" --account-key $storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 az storage container create --account-name $rgn --name "pv-store" --public-access blob --account-key $storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
@@ -222,8 +237,17 @@ echo -e "${Y}Hooking up file detection events...${NC}"
 storageId=$(az storage account show -n $rgn -g $rgn --query id --output tsv)
 queueId=$storageId/queueservices/default/queues/extract-queue
 subjectFilter="/blobServices/default/containers/file-store/blobs/"
-az eventgrid event-subscription create --name "new-blobs-to-extractors" --source-resource-id $storageId --subject-begins-with $subjectFilter --endpoint-type "storagequeue" --endpoint $queueId --storage-queue-msg-ttl 0 >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
-
+az eventgrid event-subscription create --name "new-blobs-to-extractors" --source-resource-id $storageId --subject-begins-with $subjectFilter --endpoint-type "storagequeue" --endpoint $queueId --storage-queue-msg-ttl -1 >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+# This didn't work
+# --included-event-types "Microsoft.Storage.BlobCreated Microsoft.Storage.BlobDeleted Microsoft.Storage.BlobRenamed" 
+# https://docs.microsoft.com/en-us/azure/storage/blobs/storage-blob-event-overview
+# If you want to ensure that the Microsoft.Storage.BlobCreated event is triggered only when a Block Blob
+# is completely committed, filter the event for the CopyBlob, PutBlob, PutBlockList or FlushWithClose REST API calls.
+# These API calls trigger the Microsoft.Storage.BlobCreated event only after data is fully committed to a Block Blob.
+# To learn how to create a filter, see Filter events for Event Grid.
+#
+# AND - we should split BlobCreated and BlobDeleted into two different events
+# as they will have different handlers? We could probably handle both Delete and Rename in the HTTP API directly?
 
 
 # Set up functions on consumption plan and push api
@@ -236,35 +260,12 @@ az resource create -g $rgn -n $rgn --resource-type "Microsoft.Insights/component
 # az functionapp plan create -n $rgn -g $rgn --sku Dynamic
 # above doesn't work. no way to create a consumption plan explicitly, this means we have to live with the plan being named by the system
 
-az functionapp create -n $rgn -g $rgn --storage-account $rgn --consumption-plan-location $location --app-insights $rgn --runtime node --functions-version 3 >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+az functionapp create -n $rgn -g $rgn --storage-account $rgn -c $location --app-insights $rgn --runtime node --functions-version 3 >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+
 functionsurl=$(az functionapp list -g $rgn | jq -r ".[].hostNames[0]")
 functionsid=$(az functionapp list -g $rgn --query [].id --output tsv)
+
 echo "functions_url = \"$functionsurl\"" >> ./configuration.toml
-
-# Create ./api/local.settings.json file with correct cfg parameters
-sed -e "s#STORCONN#$storageConnectionString#g" -e "s#INAME#$rgn#g" -e "s#SKEY#$storageKey#g" -e "s#CID#$clientId#g" -e "s#CSEC#$clientSecret#g" -e "s#TENID#$tenantId#g" -e "s#SUBID#$subscriptionId#g" ./api/local.settings.template > ./api/local.settings.json
-
-
-
-# Push api code to server
-
-cd api
-
-echo -e "${Y}Retrieving dependencies...${NC}"
-nvm use --lts # fix for my own machine
-npm install >> ../setup.log 2>&1 || echo -e "${R}Failed.${NC}"
-
-
-echo -e "${Y}Package api code...${NC}"
-
-mkdir ../tmp
-zip -r ../tmp/api.zip * >> ../setup.log 2>&1 || echo -e "${R}Failed.${NC}"
-cd ..
-
-
-echo -e "${Y}Deploying api code...${NC}"
-
-az functionapp deployment source config-zip -g $rgn -n $rgn --src ./tmp/api.zip >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 
 
 # Push settings to azure functions
@@ -272,10 +273,34 @@ az functionapp deployment source config-zip -g $rgn -n $rgn --src ./tmp/api.zip 
 
 echo -e "${Y}Pushing settings to function app...${NC}"
 az functionapp config appsettings set -n $rgn -g $rgn --settings InstanceName=$rgn StorageAccountKey=$storageKey ClientId=$clientId ClientSecret=$clientSecret TenantId=$tenantId SubscriptionId=$subscriptionId >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+if [ $devmode -eq 1 ]
+then
+    echo -e "${Y}Devmode; disabling container conversion; run converter locally or change ConverterDisabled to false...${NC}"
+    az functionapp config appsettings set -n $rgn -g $rgn --settings ConverterDisabled=true >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+fi
 
 
-# Hook up new blob event to api
-az eventgrid event-subscription create --name "new-blobs-notify-api" --source-resource-id $storageId --subject-begins-with $subjectFilter --endpoint-type "azurefunction" --endpoint $functionsid/NewBlobNotification >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+# Push api code to server
+
+echo -e "${Y}Pushing code to api...${NC}"
+
+cd api
+
+echo -e "${Y}Retrieving dependencies...${NC}"
+npm install >> ../setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+
+
+echo -e "${Y}Package api code...${NC}"
+
+mkdir ../tmp-build-api
+zip -r ../tmp-build-api/api.zip * >> ../setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+cd ..
+
+# Create ./api/local.settings.json file with correct cfg parameters
+if [ $devmode -eq 1 ]
+then
+  sed -e "s#STORCONN#$storageConnectionString#g" -e "s#INAME#$rgn#g" -e "s#SKEY#$storageKey#g" -e "s#CID#$clientId#g" -e "s#CSEC#$clientSecret#g" -e "s#TENID#$tenantId#g" -e "s#SUBID#$subscriptionId#g" ./api/local.settings.template > ./api/local.settings.json
+fi
 
 
 
@@ -297,6 +322,7 @@ echo "static_url = \"$staticurl\"" >> ./configuration.toml
 az functionapp cors add -n $rgn -g $rgn --allowed-origins ${staticurl:0:-1} >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 if [ $devmode -eq 1 ]
 then
+  az functionapp cors add -n $rgn -g $rgn --allowed-origins http://localhost:3000/ >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
   az functionapp cors add -n $rgn -g $rgn --allowed-origins http://localhost:5500/ >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 fi
 
@@ -343,17 +369,27 @@ memory=1 # configure this to optimize available memory for containers. leaving a
 # TODO: Adjust memory for conversion containers
 # TODO: Ideal solution: two pools, normal-mem and high-mem pools, redirect very large files to high-mem pool, optimizes runtime costs
 
-az container create -g $rgn -n $rgn-converter-09 --no-wait --cpu 1 --memory $memory --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey EVENT_ENDPOINT=$eventGridEndpoint EVENT_KEY=$eventGridKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
-az container create -g $rgn -n $rgn-converter-08 --no-wait --cpu 1 --memory $memory --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey EVENT_ENDPOINT=$eventGridEndpoint EVENT_KEY=$eventGridKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
-az container create -g $rgn -n $rgn-converter-07 --no-wait --cpu 1 --memory $memory --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey EVENT_ENDPOINT=$eventGridEndpoint EVENT_KEY=$eventGridKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
-az container create -g $rgn -n $rgn-converter-06 --no-wait --cpu 1 --memory $memory --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey EVENT_ENDPOINT=$eventGridEndpoint EVENT_KEY=$eventGridKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
-az container create -g $rgn -n $rgn-converter-05 --no-wait --cpu 1 --memory $memory --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey EVENT_ENDPOINT=$eventGridEndpoint EVENT_KEY=$eventGridKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
-az container create -g $rgn -n $rgn-converter-04 --no-wait --cpu 1 --memory $memory --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey EVENT_ENDPOINT=$eventGridEndpoint EVENT_KEY=$eventGridKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
-az container create -g $rgn -n $rgn-converter-03 --no-wait --cpu 1 --memory $memory --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey EVENT_ENDPOINT=$eventGridEndpoint EVENT_KEY=$eventGridKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
-az container create -g $rgn -n $rgn-converter-02 --no-wait --cpu 1 --memory $memory --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey EVENT_ENDPOINT=$eventGridEndpoint EVENT_KEY=$eventGridKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
-az container create -g $rgn -n $rgn-converter-01 --no-wait --cpu 1 --memory $memory --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey EVENT_ENDPOINT=$eventGridEndpoint EVENT_KEY=$eventGridKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
-az container create -g $rgn -n $rgn-converter-00 --cpu 1 --memory $memory --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey EVENT_ENDPOINT=$eventGridEndpoint EVENT_KEY=$eventGridKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+#az container create -g $rgn -n $rgn-converter-09 --no-wait --cpu 1 --memory $memory --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey EVENT_ENDPOINT=$eventGridEndpoint EVENT_KEY=$eventGridKey PRODUCTION=1 >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+#az container create -g $rgn -n $rgn-converter-08 --no-wait --cpu 1 --memory $memory --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey EVENT_ENDPOINT=$eventGridEndpoint EVENT_KEY=$eventGridKey PRODUCTION=1 >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+#az container create -g $rgn -n $rgn-converter-07 --no-wait --cpu 1 --memory $memory --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey EVENT_ENDPOINT=$eventGridEndpoint EVENT_KEY=$eventGridKey PRODUCTION=1 >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+#az container create -g $rgn -n $rgn-converter-06 --no-wait --cpu 1 --memory $memory --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey EVENT_ENDPOINT=$eventGridEndpoint EVENT_KEY=$eventGridKey PRODUCTION=1 >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+#az container create -g $rgn -n $rgn-converter-05 --no-wait --cpu 1 --memory $memory --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey EVENT_ENDPOINT=$eventGridEndpoint EVENT_KEY=$eventGridKey PRODUCTION=1 >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+#az container create -g $rgn -n $rgn-converter-04 --no-wait --cpu 1 --memory $memory --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey EVENT_ENDPOINT=$eventGridEndpoint EVENT_KEY=$eventGridKey PRODUCTION=1 >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+#az container create -g $rgn -n $rgn-converter-03 --no-wait --cpu 1 --memory $memory --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey EVENT_ENDPOINT=$eventGridEndpoint EVENT_KEY=$eventGridKey PRODUCTION=1 >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+#az container create -g $rgn -n $rgn-converter-02 --no-wait --cpu 1 --memory $memory --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey EVENT_ENDPOINT=$eventGridEndpoint EVENT_KEY=$eventGridKey PRODUCTION=1 >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+#az container create -g $rgn -n $rgn-converter-01 --no-wait --cpu 1 --memory $memory --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey EVENT_ENDPOINT=$eventGridEndpoint EVENT_KEY=$eventGridKey PRODUCTION=1 >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+az container create -g $rgn -n $rgn-converter-00 --cpu 1 --memory $memory --restart-policy OnFailure --image $registryUrl/ironviper-converter:latest --registry-login-server $registryUrl --registry-username $registryUsername --registry-password $registryPassword -e INSTANCE_NAME=$rgn ACCOUNT_KEY=$storageKey EVENT_ENDPOINT=$eventGridEndpoint EVENT_KEY=$eventGridKey PRODUCTION=1 >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 
+
+# Moving this here, trying to see if deployment works after we've done a lot of other work (suspect consumption plan creation takes time)ate
+echo -e "${Y}Deploying api code to functions app...${NC}"
+
+az functionapp deployment source config-zip -g $rgn -n $rgn --src ./tmp-build-api/api.zip >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+rm -rf ./tmp-build-api
+
+# Hook up new blob event to api
+echo -e "${Y}Hook up new blob event to API...${NC}"
+az eventgrid event-subscription create --name "new-blobs-notify-api" --source-resource-id $storageId --subject-begins-with $subjectFilter --endpoint-type "azurefunction" --endpoint $functionsid/functions/NewBlobNotification >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 
 
 # TODO: Set up cdn? #notyet #keepcostsatminimum #easytodoyourself
@@ -378,8 +414,14 @@ echo -e "${NC}(Note: We're not quite finished yet - not even a PoC - but some st
 echo -e "${Y}Downloading test files...${NC}"
 mkdir ./tmp/ironviper-testfiles
 cd ./tmp/ironviper-testfiles
-wget --quiet https://chphno.blob.core.windows.net/ironviper-testfiles/DSCF8510.jpg
-wget --quiet https://chphno.blob.core.windows.net/ironviper-testfiles/DSCF8525.jpg
+
+if [[ ! -e DSCF8510.jpg ]]; then
+  wget --quiet https://chphno.blob.core.windows.net/ironviper-testfiles/DSCF8510.jpg
+fi
+if [[ ! -e DSCF8525.jpg ]]; then
+  wget --quiet https://chphno.blob.core.windows.net/ironviper-testfiles/DSCF8525.jpg
+fi
+
 # TODO: Add new file formats as we add support for them
 cd ../..
 
@@ -387,7 +429,7 @@ cd ../..
 
 echo -e "${Y}Uploading test files to check system...${NC}"
 az storage blob upload-batch -s ./tmp/ironviper-testfiles -d 'file-store' --account-name $rgn --account-key $storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
-
+echo -e "${G}Done.${NC}"
 
 
 # #####################################################################
@@ -402,7 +444,6 @@ then
     echo "--development set, prepping this environ for development on ironviper"
     echo "note this will store sensitive info on your computer, keep it safe (configuration.toml, serviceprincipal.json)"
     
-    sudo npm install -g live-server
     pip install -r ./converter/requirements.txt
 
     sudo docker build -t ironviper-converter ./converter/.
@@ -417,6 +458,7 @@ then
     # TODO: Write from configuration to /frontend/local.settings.json for easier debugging, we need instancename and storagekey
 else
     echo -e "${Y}Cleaning up...${NC}"
+    # cd ..
     # rm -rf ./$rgn
 fi
 
