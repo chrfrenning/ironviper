@@ -154,14 +154,16 @@ class Folder {
         return parent; // this is now the new child
     }
 
-    private static void InsertFolderIntoAzureTable(Folder parent, Folder child, string connectionString) {
+    private static void InsertFolderIntoAzureTable(Folder? parent, Folder child, string connectionString) {
         // Write new folder into Azure table
         var serviceClient = new TableServiceClient(connectionString);
         var tableClient = serviceClient.GetTableClient("forest");
         FolderEntity newEntity = new FolderEntity();
         newEntity.PartitionKey = "folder";
         newEntity.RowKey = child.Id;
-        newEntity.Parent = parent.Id;
+        if ( parent != null ) {
+            newEntity.Parent = parent.Id;
+        }
         newEntity.Name = child.Name;
         tableClient.UpsertEntity(newEntity);
     }
@@ -217,6 +219,7 @@ class Folder {
         if ( allfolders.Count() == 0 ) {
             Folder newRoot = new Folder("/");
             // TODO: Insert this into the db
+            InsertFolderIntoAzureTable(null, newRoot, connectionString);
             return newRoot;
         }
 
