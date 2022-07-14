@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from sqlite3 import Date
 import sys
 import json
 import toml
@@ -20,6 +21,7 @@ from azure.storage.blob import BlobClient
 from azure.storage.blob import ContentSettings
 from azure.cosmosdb.table.tableservice import TableService # replace with azure-data-tables? https://docs.microsoft.com/en-us/python/api/overview/azure/data-tables-readme?view=azure-python
 from azure.cosmosdb.table.models import Entity
+import foldermodel
 
 # Import common code libraries for ironviper, apologies for the path manipulation here
 # sys.path.append(os.path.abspath(os.path.dirname(os.path.abspath(__file__))+'/../libs/python'))
@@ -229,7 +231,7 @@ def upload_thumbnails(thumbs, instance_name, account_key, short_id):
             upload_blob(t, url, account_key, inlineFlag=True)
             th_url_list.append(url)
         except Exception as ex:
-            print( "Failed to upload " + t + ": " + ex.message)
+            print( "Failed to upload " + t + ": " + ex)
 
     return th_url_list
 
@@ -255,7 +257,7 @@ def download_blob(url, extension, account_key):
             my_blob.write(download_stream.readall())
         print( "Download completed in {} seconds".format(time.time() - start))
     except Exception as ex:
-        print( "Error downloading blob: " + ex.message)
+        print( "Error downloading blob: " + ex)
         
     return tempFileName
 
@@ -270,14 +272,14 @@ def post_new_file_event(file_record):
     try:
         pass
     except Exception as ex:
-        print("Cannot post new file event " + ex.message)
+        print("Cannot post new file event " + ex)
 
 
 def post_new_folder_event(folder_record):
     try:
         pass
     except Exception as ex:
-        print("Cannot post new folder event " + ex.message)
+        print("Cannot post new folder event " + ex)
 
 
 
@@ -291,28 +293,31 @@ def create_file_record(url, unique_id, partition_key, short_id, name, extension,
 
     utcnow = datetime.datetime.utcnow().isoformat()
 
+    # insert the file into the forest, make sure we have a folder to place it on (files are leaves, folders make trees)
+    # todo push new folder events if creating new folders
+    conn_str = "DefaultEndpointsProtocol=https;AccountName={};AccountKey={};EndpointSuffix=core.windows.net".format(instance_name, account_key)
+    root = foldermodel.CreateFolderTreeFromFlatFolderList( foldermodel.LoadAllFoldersFromAzureTable(conn_str) )
+    folder = foldermodel.FindFolderByPath(root, relative_path)
+    if folder is None:
+        folder = foldermodel.AddFolderToModelAndDatabaseRecursive(root, relative_path, conn_str)
+
     # Each ingested (and successfully processed) file has a unique record containing
     # information, list of previews, 
     file_record = {
         'PartitionKey': partition_key,      # using tree structure for partition key a good idea? #possiblybadidea #possiblygoodidea
         'RowKey': short_id,                 # using unique file name for key a good idea? #badidea #mustbeuniqueinpartition
-        'uid': unique_id,                   # globally uniqueId
-        'url': url,                         # master blob url
-        'name': name,                       # filename
-        'ext' : extension,                  # file extension
-        'path' : relative_path,             # path / folder file lives in
-        'it': utcnow,                       # ingestion_time
+        'state': 'done',
+        'folder_id': folder.id,
         'pvs' : json.dumps(url_list),       # json list of preview urls
         'md5' : md5,                        # md5 checksum of total file binary data at ingestion time
         'sha256' : sha256,                  # sha256 checksum of total file binary data at ingestion time
         'exif' : exifString,                # exif dumped as json by imagemagick
-        'xmp' : xmpString,                  # if exif identified APP1 data, xmp dump in xml by imagemagick
-        'created_time' : utcnow,            # file creation time, using now, TODO: pick up file metadata if provided in upload
-        'modified_time' : utcnow            # file mod time, using now, TODO: pick up file metadata if provided in upload
+        'xmp' : xmpString                   # if exif identified APP1 data, xmp dump in xml by imagemagick
     }
 
     table_service = TableService(account_name=instance_name, account_key=account_key)
-    table_service.insert_or_replace_entity('files', file_record)
+    table_service.merge_entity('files', file_record)
+    
 
     print( "file_record inserted in {} sec".format(time.time()-start))
 
@@ -323,8 +328,6 @@ def create_file_record(url, unique_id, partition_key, short_id, name, extension,
     file_record['item_type'] = 'file'
     table_service.insert_or_replace_entity('folders', file_record)
 
-    post_new_file_event(file_record)
-
     # Ensure we have folder records for the entire path
     # TODO: Optimization; Check if the final folder exists, if so, skip step (we know all higher level paths have been created too)
     
@@ -334,13 +337,13 @@ def create_file_record(url, unique_id, partition_key, short_id, name, extension,
     folder_struct[0] = "%2F" # path starts with slash, will have empty slot first, replace with /
     last_folder = folder_struct[0] # weird exception case, root refers to itself as parent, but easy to check for later
 
-    for folder in folder_struct:
-        if len(folder) == 0: # ignore empty paths, tolerate e.g. folder1//folder2/folder3/
+    for folder_name in folder_struct:
+        if len(folder_name) == 0: # ignore empty paths, tolerate e.g. folder1//folder2/folder3/
             continue
         
         folder_record = {
             'PartitionKey': last_folder,
-            'RowKey': folder,
+            'RowKey': folder_name,
             'created_time': utcnow,
             'modified_time': utcnow,
             'nf_flag': True,
@@ -348,8 +351,8 @@ def create_file_record(url, unique_id, partition_key, short_id, name, extension,
             'item_type': 'folder'
         }
         
-        if len(folder) > 3: # special handling of root
-            last_folder = last_folder + "%2F" + folder
+        if len(folder_name) > 3: # special handling of root
+            last_folder = last_folder + "%2F" + folder_name
 
         # if folder already exist, we will fail, remove the creation properties and
         # try a merge operation (that should work unless service is down)
@@ -359,6 +362,35 @@ def create_file_record(url, unique_id, partition_key, short_id, name, extension,
         except:
             folder_record.pop('created_time')
             table_service.insert_or_merge_entity('folders', folder_record)
+
+    
+    
+    # create the leaves entry
+    leaf_record = {
+        'PartitionKey': folder.id,          # the folder this file is in (branch of tree in forest)
+        'RowKey': short_id,
+        'state': 'done',                    # all proc done
+        'uid': unique_id,                   # globally uniqueId
+        'url': url,                         # master blob url
+        'name': name,                       # filename
+        'ext' : extension,                  # file extension
+        'path' : relative_path,             # path / folder file lives in
+        'it': utcnow,                       # ingestion_time
+        'created_time' : utcnow,            # file creation time, using now, TODO: pick up file metadata if provided in upload
+        'modified_time' : utcnow,           # file mod time, using now, TODO: pick up file metadata if provided in upload
+        'pvs' : json.dumps(url_list),       # json list of preview urls
+        'md5' : md5,                        # md5 checksum of total file binary data at ingestion time
+        'sha256' : sha256,                  # sha256 checksum of total file binary data at ingestion time
+        'exif' : exifString,                # exif dumped as json by imagemagick
+        'xmp' : xmpString                   # if exif identified APP1 data, xmp dump in xml by imagemagick
+    }
+
+    table_service.insert_or_replace_entity('leaves', leaf_record)
+
+    # Ready to notify everyone there's a new file in town
+    post_new_file_event(file_record)
+
+    # TODO: Post message to pubsub as well for realtime updates of clients
 
     # PartitionKey    RowKey
     # /               /                 < Do we need this level at all?
@@ -499,7 +531,7 @@ def handle_jpeg_image(url, unique_id, partition_key, short_id, temporary_file_na
         _handle_image_generic(url, unique_id, partition_key, short_id, temporary_file_name, name, extension, relative_path, instance_name, account_key)
 
     except Exception as ex:
-        print ("handle_image exception: ", ex.message)
+        print ("handle_image exception: ", ex)
         raise ex
         # TODO: if we fail here, consider tainted and ask infra to recycle container?
         # can do by setting global stopSignal = True or using exit(), unsure of best approach
@@ -523,7 +555,7 @@ def handle_generic_file(url, unique_id, partition_key, short_id, temporary_file_
 
 
     except Exception as ex:
-        print( "handle_generic_file exception: ", ex.message)
+        print( "handle_generic_file exception: ", ex)
         raise ex
 
 
@@ -575,14 +607,68 @@ def delete_orphan_record(partition_key, short_id, instance_name, account_key):
     print( "delete_orphan_record completed in {} sec".format(time.time()-start))
 
 
+def create_new_file_record(url, unique_id, partition_key, short_id, name, extension, relative_path, ingestion_time, created_time, modified_time, instance_name, account_key):
+    start = time.time()
+    print( "Creating initial file record, state 'new'")
+
+    file_record = {
+        'PartitionKey': partition_key,      # using tree structure for partition key a good idea? #possiblybadidea #possiblygoodidea
+        'RowKey': short_id,                 # using unique file name for key a good idea? #badidea #mustbeuniqueinpartition
+        'state': 'new',                     # initial state
+        'uid': unique_id,                   # globally uniqueId
+        'url': url,                         # master blob url
+        'name': name,                       # filename
+        'ext' : extension,                  # file extension
+        'path' : relative_path,             # path / folder file lives in
+        'it': ingestion_time,               # ingestion_time
+        'created_time' : created_time,      # file creation time, using now, TODO: pick up file metadata if provided in upload
+        'modified_time' : modified_time     # file mod time, using now, TODO: pick up file metadata if provided in upload
+    }
+
+    table_service = TableService(account_name=instance_name, account_key=account_key)
+    table_service.insert_or_replace_entity('files', file_record)
+
+    print( "new file_record inserted in {} sec".format(time.time()-start))
+
+
 
 def handle_new_file(url, name, relative_path, extension, instance_name, account_key):
     # create id's for this file
-
     unique_id = uuid.uuid4().hex
     partition_key = shortuuid.random(length=3)
     short_id = partition_key + '-' + shortuuid.random(length=7)
+    ingestion_time = datetime.datetime.utcnow().isoformat()
+    ingestion_count = 1
 
+    # check if metadata has been set on this blob
+    bc = BlobClient.from_blob_url(url, account_key)
+    props = bc.get_blob_properties()
+    print (props)
+    metadata = props.metadata
+    if "unique_id" in metadata:
+        unique_id = metadata["unique_id"] # TODO: validate that the pattern is acceptable
+    if "short_id" in metadata:
+        short_id = metadata["short_id"] # TODO: validate that the pattern is acceptable
+        partition_key = short_id.split('-')[0]
+    if "ingestion_count" in metadata:
+        ingestion_count = int(metadata["ingestion_count"]) + 1
+
+    created_time = datetime.datetime.utcnow().isoformat()
+    if "created_time" in metadata:
+        created_time = metadata["created_time"] # TODO: validate that the pattern is acceptable
+
+    modified_time = datetime.datetime.utcnow().isoformat()
+    if "modified_time" in metadata:
+        modified_time = metadata["modified_time"] # TODO: validate that the pattern is acceptable
+
+    # update the metadata for this blob
+    bc.set_blob_metadata({
+        "unique_id": unique_id, 
+        "short_id": short_id,
+        "ingestion_count": str(ingestion_count)
+        })
+
+    # log what we have now
     print( "Unique ids: unique_id: {}, partition_key: {}, short_id: {}".format(unique_id, partition_key, short_id))
 
     # create orphan record in case the ingestion process breaks
@@ -595,6 +681,22 @@ def handle_new_file(url, name, relative_path, extension, instance_name, account_
 
     create_orphan_record(url, unique_id, partition_key, short_id, instance_name, account_key)
 
+    # create the initial file record
+
+    create_new_file_record(
+        url,
+        unique_id,
+        partition_key,
+        short_id,
+        name,
+        extension,
+        relative_path,
+        ingestion_time,
+        created_time,
+        modified_time,
+        instance_name,
+        account_key
+    )
 
     # TODO: manage rest of process based on extension
     # TODO: use identify -verbose <fn> to get info on file and validate
@@ -699,7 +801,7 @@ def dequeue_messages(config_instance_name, config_account_key):
 
         except Exception as ex:
             print( "Error handling message ({})".format(msg.content))
-            print( "Exception: " + ex.message)
+            print( "Exception: " + ex)
 
         finally:
             # something on every iteration?
@@ -826,7 +928,7 @@ def main():
             time.sleep( random.randrange(1,3) )
 
     except Exception as ex:
-        print( "An error occurred during message management. " + ex.message)
+        print( "An error occurred during message management. " + ex)
         exit(1)
 
 

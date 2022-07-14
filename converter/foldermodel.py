@@ -81,15 +81,20 @@ def FindFolderByPath(startFolder, path):
 
 def LoadAllFoldersFromAzureTable(conn_str):
     table_name = "forest"
-    queue_table = TableClient.from_connection_string(conn_str, table_name)
-    query_results_iterator = queue_table.query_entities("PartitionKey eq 'folder'")
+    forest_table = TableClient.from_connection_string(conn_str, table_name)
+    query_results_iterator = forest_table.query_entities("PartitionKey eq 'folder'")
     
     all_folders_flat = []
     for entity in query_results_iterator:
-        print(entity)
+        #print(entity)
         new_folder = Folder(entity['RowKey'], entity['Name'])
-        new_folder.parentId = entity['Parent']
+        if entity.get('Parent', None) is not None:
+            new_folder.parentId = entity.get('Parent', None)
         all_folders_flat.append( new_folder )
+
+    if ( len(all_folders_flat) == 0 ):
+        all_folders_flat.append( Folder("OorootO", "/") )
+        AddFolderToDatabase(all_folders_flat[0], conn_str)
         
     return all_folders_flat
 
@@ -108,6 +113,23 @@ def AddChildFolders(parent, flat_folder_list):
         flat_folder_list.remove(c)
         AddChildFolders(c, flat_folder_list)
         c = FindFolderByParentId(flat_folder_list, parent.id)
+
+def AddFolderToModelAndDatabaseRecursive(parentFolder, newRelativePath, conn_str):
+    pathParts = newRelativePath.split('/')
+    for path in pathParts:
+        if path == '':
+            continue
+        if parentFolder.children is None:
+            parentFolder.children = []
+        if FindFolderByName(parentFolder.children, path) is None:
+            newFolder = Folder(None, path)
+            newFolder.parent = parentFolder
+            while not IsIdUnique(parentFolder.get_root(), newFolder.id):
+                newFolder.id = shortuuid.random(length=7)
+            AddFolderToDatabase(newFolder, conn_str)
+            parentFolder.add_child(newFolder)
+        parentFolder = FindFolderByName(parentFolder.children, path)
+    return parentFolder
 
 def AddFolderToModelAndDatabase(parentFolder, newFolderName, conn_str):
     if FindFolderByName(parentFolder.children, newFolderName) is not None:
@@ -143,19 +165,19 @@ def PrintFolder(folder, level=0):
     for child in folder.children:
         PrintFolder(child,level+1)
 
-conn_str = "DefaultEndpointsProtocol=https;EndpointSuffix=core.windows.net;AccountName=ironviper006d20b7;AccountKey=GFEJ6h5NV0nUcsJT8J3MF5zUnYtWMnOEwgTaRH8lUKb+3pVvOyiNkuzwT/jS1F7FDuAMe0VFzv2d+ASt/1gKvw==;BlobEndpoint=https://ironviper006d20b7.blob.core.windows.net/;FileEndpoint=https://ironviper006d20b7.file.core.windows.net/;QueueEndpoint=https://ironviper006d20b7.queue.core.windows.net/;TableEndpoint=https://ironviper006d20b7.table.core.windows.net/"
-folders_flat = LoadAllFoldersFromAzureTable(conn_str)
-root = CreateFolderTreeFromFlatFolderList(folders_flat)
-PrintFolder(root)
+# conn_str = "DefaultEndpointsProtocol=https;EndpointSuffix=core.windows.net;AccountName=ironviper006d20b7;AccountKey=GFEJ6h5NV0nUcsJT8J3MF5zUnYtWMnOEwgTaRH8lUKb+3pVvOyiNkuzwT/jS1F7FDuAMe0VFzv2d+ASt/1gKvw==;BlobEndpoint=https://ironviper006d20b7.blob.core.windows.net/;FileEndpoint=https://ironviper006d20b7.file.core.windows.net/;QueueEndpoint=https://ironviper006d20b7.queue.core.windows.net/;TableEndpoint=https://ironviper006d20b7.table.core.windows.net/"
+# folders_flat = LoadAllFoldersFromAzureTable(conn_str)
+# root = CreateFolderTreeFromFlatFolderList(folders_flat)
+# PrintFolder(root)
 
-f = FindFolderByPath(root, "/folder1/folder1-1")
-if f is not None:
-    print(f.name)
-    print(f.get_path())
+# f = FindFolderByPath(root, "/folder1/folder1-1")
+# if f is not None:
+#     print(f.name)
+#     print(f.get_path())
 
-print(Folder(None, "/").get_path())
+# print(Folder(None, "/").get_path())
 
-f = AddFolderToModelAndDatabase(root, "folder2", conn_str)
-AddFolderToModelAndDatabase(f, "folder2-1", conn_str)
-AddFolderToModelAndDatabase(f, "folder2-2", conn_str)
-AddFolderToModelAndDatabase(f, "folder2-3", conn_str)
+# f = AddFolderToModelAndDatabase(root, "folder2", conn_str)
+# AddFolderToModelAndDatabase(f, "folder2-1", conn_str)
+# AddFolderToModelAndDatabase(f, "folder2-2", conn_str)
+# AddFolderToModelAndDatabase(f, "folder2-3", conn_str)
