@@ -1,6 +1,18 @@
 import shortuuid
 from azure.data.tables import TableClient
 
+#
+# TODO: As the folder structure grows to big sizes, it is not efficient to load
+# the structure every time the converter starts. Caching it in memory is not a good
+# idea as it is likely to be stale (user creates folder, then initiates upload).
+# Instead we should take the "overhead" of finding the root, then walking
+# through queries to find the folder in question. This will result in n=depth
+# queries, but it will be faster than loading the entire structure every time and
+# avoid the caching problem alltogether.
+#
+# The challenge now is finding the root. One way of fixing this is to have a
+# fixed id for the root, e.g. 'OorootO'
+
 class Folder:
     def __init__(self, id, name):
         if id is None:
