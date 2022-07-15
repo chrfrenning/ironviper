@@ -1,3 +1,4 @@
+azure-data-tables
 azure-storage-queue
 azure-storage-blob
 azure-keyvault-secrets

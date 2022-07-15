@@ -10,4 +10,15 @@ event_endpoint = configuration["eventgrid_endpoint"]
 event_key = configuration["eventgrid_key"]
 
 os.system("sudo docker build -t ironviper-converter:latest .")
-os.system("sudo docker run -it --rm --env INSTANCE_NAME={} --env ACCOUNT_KEY={} EVENT_ENDPOINT={} EVENT_KEY={} ironviper-converter".format(account_name, account_key, event_endpoint, event_key))
+os.system("sudo docker run -it --rm \
+    --env INSTANCE_NAME={instance_name} \
+    --env STORAGE_KEY={account_key} \
+    --env EVENT_ENDPOINT={event_endpoint}  \
+    --env EVENT_KEY={event_key} \
+    --env PRODUCTION=1 \
+    ironviper-converter"
+    .format(
+        instance_name=account_name, 
+        account_key=account_key, 
+        event_endpoint=event_endpoint, 
+        event_key=event_key))
