@@ -4,7 +4,7 @@ using System.Text;
 using Azure.Storage;
 using Azure.Storage.Blobs;
 using Azure.Storage.Sas;
-
+using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddCors(options => {
@@ -35,21 +35,47 @@ app.MapGet("/", () => {
         edges="/e/(vertex)/",
         app_license="MIT",
         app_source="https://github.com/chrfrenning/ironviper/", 
-        app_copyright="IronViper is Copyright (C) Christopher Frenning 2020-2022",
+        app_copyright=$"IronViper is Copyright (C) Christopher Frenning 2020-{DateTime.UtcNow.Year}",
         });
 });
 
-app.MapGet("/t/", () => {
-    dynamic m = new { t = tree.Children, i = new List<dynamic>() };
-    return Results.Ok(m);
-});
+// app.MapGet("/t/", () => {
+//     dynamic m = new { t = tree.Children, i = new List<dynamic>() };
+//     return Results.Ok(m);
+// });
 
-app.MapGet("/t/{*name}", (string name) => {
-    Folder? folder = Folder.FindFolderByPath(tree, name);
+app.MapGet("/t/{*name}", (string? name, [FromQuery(Name="d")]int? depth, [FromQuery(Name="i")]bool? includeItems) => {
+    Folder? folder = tree;
+    if ( name != null )
+        folder = Folder.FindFolderByPath(tree, name);
+
     if ( folder == null )
         return Results.NotFound();
-    
-    dynamic m = new { t = folder.Children, i = new List<dynamic>() };
+
+    var realDepth = depth ?? 0;
+    if ( realDepth == 0 )
+        realDepth = int.MaxValue;
+    folder = folder.CloneToDepth(realDepth);
+
+    List<File> itemsInFolder = new List<File>();
+    if ( includeItems != null && includeItems == true )
+        itemsInFolder = folder.ListAllFiles(app.Configuration["StorageConnectionString"]);
+
+    dynamic info = new {
+            id = folder.Id,
+            name = folder.Name,
+            hasChildren = folder.HasChildren,
+            title = folder.Title,
+            description = folder.Description,
+            tags = folder.Tags
+        };
+
+    dynamic m = new { 
+        info = info,
+        tree = folder.Children, 
+        items = itemsInFolder 
+        };
+
     return Results.Ok(m);
 });
 
@@ -71,6 +97,22 @@ app.MapDelete("/t/{*name}", (string name) => {
     return Results.Ok();
 });
 
+app.MapGet("/f/{id}", (string id) => {
+    Folder? folder = Folder.FindFolderById(tree, id);
+    if ( folder == null )
+        return Results.NotFound();
+
+    return Results.Redirect("/t" + folder.Path);
+});
+
+app.MapGet("/i/{id}", (string id) => {
+    File? file = File.LookupFileById(id, app.Configuration["StorageConnectionString"]);
+    if ( file == null )
+        return Results.NotFound();
+    // TODO: Redirect this to the /t/<path>/<filename> endpoint
+    return Results.Ok(file);
+});
+
 app.MapGet("/tree/{*name}", (string? name) => {
     Folder? folder = tree;
     if ( name != null )
@@ -89,7 +131,7 @@ app.MapGet("/tree/{*name}", (string? name) => {
     bool anyFiles = false;
     folder.ListAllFiles(app.Configuration["StorageConnectionString"]).ForEach(f => {
         anyFiles = true;
-        sb.Append("<li><a href='/i/" + f.Id + "'>" + f.Name + "</a></li>");
+        sb.Append($"<li><a href='/i/{f.Id}'><img src='{f.ThumbnailUrl}'><br/>{f.Name}</a></li>");
     });
     sb.Append("</ul>");
 
@@ -102,18 +144,6 @@ app.MapGet("/tree/{*name}", (string? name) => {
     return Results.Extensions.Html(sb.ToString());
 });
 
-string CreateSasTokenWithFilename(Folder folder, string filename) {
-    const string CONTAINER_NAME = "file-store";
-    
-    BlobContainerClient container = new BlobContainerClient(app.Configuration["StorageConnectionString"], CONTAINER_NAME);
-    var client = container.GetBlobClient(folder.Path + "/" + filename );
-    return client.GenerateSasUri(BlobSasPermissions.Create, DateTimeOffset.UtcNow.AddMinutes(5)).ToString();
-}
-
-string CreateSasToken(Folder folder) {
-    return CreateSasTokenWithFilename(folder, IDGenerator.Generate(16));
-}
-
 void FolderToHtml(Folder folder, StringBuilder sb) {
     sb.Append("<li>");
     sb.AppendFormat("<a href='/tree{0}'>", folder.Path);
@@ -125,6 +155,18 @@ void FolderToHtml(Folder folder, StringBuilder sb) {
     }
     sb.Append("</ul>");
     sb.Append("</li>");
+}
+
+string CreateSasTokenWithFilename(Folder folder, string filename) {
+    const string CONTAINER_NAME = "file-store";
+    
+    BlobContainerClient container = new BlobContainerClient(app.Configuration["StorageConnectionString"], CONTAINER_NAME);
+    var client = container.GetBlobClient(folder.Path + "/" + filename );
+    return client.GenerateSasUri(BlobSasPermissions.Create, DateTimeOffset.UtcNow.AddMinutes(5)).ToString();
+}
+
+string CreateSasToken(Folder folder) {
+    return CreateSasTokenWithFilename(folder, IDGenerator.Generate(16));
 }
 
 app.MapGet("/n/{id:regex(^[a-zA-Z0-9]{{7}}$)}", (string id) => {

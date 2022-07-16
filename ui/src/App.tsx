@@ -2,6 +2,7 @@ import React from 'react';
 import logo from './logo.svg';
 import './App.css';
 import Tree from './Tree';
+import Items from './Items';
 
 var current_path = "/";
 
@@ -9,10 +10,12 @@ function App() {
 
   return (
     <div className="App">
-      <header className="App-header">
+      <Tree title={''} subtitle={''} />
+      <Items items={[]} />
+      {/* <header className="App-header">
         <img src={logo} className="App-logo" alt="logo" />
-        <Tree title={''} subtitle={''} />
-      </header>
+        
+      </header> */}
     </div>
   );
   

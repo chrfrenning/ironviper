@@ -1,0 +1,25 @@
+.itemGrid {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.item {
+    margin: 3px;
+    background-color: antiquewhite;
+    text-align: center;
+}
+.thumbnail {
+    width: 200px;
+    height: 200px;
+    background-color: lightgray;
+    vertical-align: middle;
+}
+.item .info {
+    background-color: aquamarine;
+    justify-content: center;
+    align-items: center;
+}
+.item .filename {
+    display: block;
+    font-size: 0.6em;
+}

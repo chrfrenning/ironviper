@@ -1,30 +1,44 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Azure;
 using Azure.Data.Tables;
+using System.Linq;
 
 class Folder {
     public Folder() {
         this.Id = String.Empty;
         this.Name = String.Empty;
-        this.Description = String.Empty;
+        //this.Description = String.Empty;
         this.Children = new List<Folder>();
     }
     public Folder(string name) {
         this.Id = CreateFolderUniqueId();
         this.Name = name;
-        this.Description = String.Empty;
+        //this.Description = String.Empty;
         this.Children = new List<Folder>();
     }
 
     public Folder(string id, string name) {
         this.Id = id;
         this.Name = name;
-        this.Description = String.Empty;
+        //this.Description = String.Empty;
         this.Children = new List<Folder>();
+    }
+
+    public Folder CloneToDepth(int depth) {
+        Folder clone = new Folder(this.Id, this.Name);
+        clone.Children = new List<Folder>();
+        if ( depth > 0 ) {
+            foreach ( Folder child in this.Children ) {
+                Folder childClone = child.CloneToDepth(depth - 1);
+                clone.Children.Add(childClone);
+            }
+        }
+        return clone;
     }
 
     public string Id { get; set; }
@@ -43,11 +57,28 @@ class Folder {
         }
     } }
     [JsonIgnore] public string? ParentId { get; set; }
-    [JsonIgnore] public List<Folder> Children { get; set; }
+    public List<Folder> Children { get; set; }
 
     [JsonIgnore] public Folder? Parent { get; set; }
     public Boolean HasChildren { get { return this.Children.Count > 0; } }
-    public string Description { get; set; }
+    
+    public string Title { get {
+        return "Metadata.Title";
+        //return entity?.GetString("title") ?? "";
+    }}
+    public string Description { get {
+        return "Metadata.Description";
+        //return entity?.GetString("description") ?? "";
+    }
+    }
+    public string[] Tags {
+        get {
+            var tags = new List<string> { "tag1", "mediumtag", "tag3", "very very long tag", "tag5" };
+            tags.Sort();
+            return tags.ToArray();
+            //return entity?.GetString("tags").Split(',') ?? new string[0];
+        }
+    }
 
     public Folder GetRoot() {
         Folder current = this;
@@ -217,8 +248,7 @@ class Folder {
         // the database may be empty, so then just imitate a root folder
         List<FolderEntity> allfolders = results.ToList<FolderEntity>();
         if ( allfolders.Count() == 0 ) {
-            Folder newRoot = new Folder("/");
-            // TODO: Insert this into the db
+            Folder newRoot = new Folder("OorootO", "/"); // magic id for root
             InsertFolderIntoAzureTable(null, newRoot, connectionString);
             return newRoot;
         }
@@ -253,20 +283,22 @@ class Folder {
     }
 
     public List<File> ListAllFiles(string connectionString) {
-        const string TABLENAME = "folders";
+        const string TABLENAME = "leaves";
 
         // read from azure table
         var serviceClient = new TableServiceClient(connectionString);
         var tableClient = serviceClient.GetTableClient(TABLENAME);
-        var results = tableClient.Query<FileInFolderEntity>(filter: $"PartitionKey eq '{this.Id}'");
 
-        // the database may be empty, so then just imitate a root folder
-        List<FileInFolderEntity> allfiles = results.ToList<FileInFolderEntity>();
+        // query and make into an easily iterable list
+        //var results = tableClient.Query<FileInFolderEntity>(filter: $"PartitionKey eq '{this.Id}'");
+        //List<FileInFolderEntity> allfiles = results.ToList<FileInFolderEntity>();
+        var results = tableClient.Query<TableEntity>(filter: $"PartitionKey eq '{this.Id}'");
+        List<TableEntity> allfiles = results.ToList<TableEntity>();
 
         // create root, update with info from db
         List<File> files = new List<File>(allfiles.Count());
-        foreach (var file in allfiles) {
-            files.Add(new File(file.RowKey, file.name));
+        foreach (var record in allfiles) {
+            files.Add(new File(record));
         }
         return files;
     }
@@ -319,12 +351,73 @@ class FileEntity : ITableEntity
 }
 
 class File {
+    private TableEntity? entity = null;
     public File(string id, string name) {
         this.Id = id;
         this.Name = name;
     }
+
+    public File(TableEntity entity) {
+        this.Id = entity.RowKey;
+        this.Name = entity.GetString("name");
+        this.entity = entity;
+    }
     public string Id { get; set; }
     public string Name { get; set; }
+    public string Path { get {
+        return entity?.GetString("path") ?? "/";
+    }}
+    public string Extension { get {
+        return entity?.GetString("ext") ?? "";
+    }}
+    public string Title { get {
+        return "Metadata.Title";
+        //return entity?.GetString("title") ?? "";
+    }}
+    public string Description { get {
+        return "Metadata.Description";
+        //return entity?.GetString("description") ?? "";
+    }}
+    public string[] Tags {
+        get {
+            var tags = new List<string> { "tag1", "mediumtag", "tag3", "very very long tag", "tag5" };
+            tags.Sort();
+            return tags.ToArray();
+            //return entity?.GetString("tags").Split(',') ?? new string[0];
+        }
+    }
+    public Guid Guid { get {
+        return Guid.Parse( entity?.GetString("uid") ?? Guid.Empty.ToString() );
+    }}
+    public DateTime CreatedTime { get {
+        return DateTime.Parse(entity?.GetString("created_time") ?? "1/1/1970");
+    }}
+    public DateTime ModifiedTime { get {
+        return DateTime.Parse(entity?.GetString("modified_time") ?? "1/1/1970");
+    }}
+    public DateTime IngestedTime { get {
+        return DateTime.Parse(entity?.GetString("it") ?? "1/1/1970");
+    }}
+    public string Md5 { get {
+        return entity?.GetString("md5") ?? "";
+    }}
+    public string Sha256 { get {
+        return entity?.GetString("md5") ?? "";
+    }}
+    public string ThumbnailUrl { get {
+        string[] pvs = JsonSerializer.Deserialize<string[]>(entity?.GetString("pvs") ?? "[]");
+        var query = from pv in pvs
+                    where pv.Contains("_200.")
+                    select pv;
+        return query.FirstOrDefault(String.Empty);
+    }}
+    public string PreviewUrl { get {
+        string[] pvs = JsonSerializer.Deserialize<string[]>(entity?.GetString("pvs") ?? "[]");
+        var query = from pv in pvs
+                    where pv.Contains("_1600.")
+                    select pv;
+        return query.FirstOrDefault(String.Empty);
+    }}
 
     public static File? LookupFileById(string id, string connectionString) {
         const string TABLENAME = "files";

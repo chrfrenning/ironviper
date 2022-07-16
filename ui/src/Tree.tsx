@@ -16,16 +16,28 @@ const Tree: FC<TreeProps> = ({ title, subtitle }) => {
 
   function getData(path: string): void {
     current_path += "/" + path;
+    current_path = "";
     setIsLoading(true);
-    fetch('http://localhost:5211/t/' + current_path).then(m => m.json()).then(res => { console.log(res.t[0].id); setIsLoading(false); setTree(res.t); });
+    fetch('http://localhost:5211/t/?d=0' + current_path).then(m => m.json()).then(res => { setIsLoading(false); setTree(res.tree); });
   }
 
   const onclick = (e: any) => {
     getData("/aja");
   }
 
+  function renderTree(n : any) {
+    return <li key={n.id} title={n.title}>
+      {n.name}
+      { n.children && n.children.length > 0 && <ul>{n.children.map(renderTree)}</ul> }
+    </li>
+  }
+
   const treeRenderer = tree.map( (n:any) => {
-    return <li key={n.id} onClick={() => getData(n.name)}>{n.name}</li>;
+    return renderTree(n);
+    // return <li key={n.id} 
+    //     onClick={() => getData(n.name)}>
+    //       <span title={n.title}>{n.name}</span>
+    //   </li>;
   });
 
   const content = isLoading ? <div>Loading...</div> : <ul>{treeRenderer}</ul>;
