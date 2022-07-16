@@ -1,4 +1,6 @@
 import React, { FC } from 'react';
+import {useCallback} from 'react';
+import Dropzone from 'react-dropzone';
 import "./Items.css";
 
 interface ItemProps {
@@ -29,7 +31,35 @@ const Items: FC<ItemProps> = ({  }) => {
         </div>;
   });
 
-  const content = isLoading ? <div className="itemGrid">Loading...</div> : <div className="itemGrid">{itemsRenderer}</div>;
+  const content = isLoading ? <div className="itemGrid">Loading...</div> : <section>
+    <Dropzone onDrop={ acceptedFiles => {
+              acceptedFiles.map( (file:any) => {
+                console.log(file);
+                console.log("Uploading " + file.name);
+                fetch('http://localhost:5211/services/initialize-upload/?path=/&filename='+file.name)
+                .then(m => m.json()).then(res => { 
+                  console.log(res);
+                  fetch(res.url, { method: 'PUT', body: file, mode: 'cors', headers: {
+                    'x-ms-version': '2019-12-12',
+                    'x-ms-blob-type': 'BlockBlob',
+                    'x-ms-blob-content-type': file.type,
+                    'x-ms-meta-original_filename': file.name,
+                    'x-ms-meta-uniqueid': res.id
+                  }}).then( res => console.log(res) );
+              });
+          });
+          }}>
+            {({ getRootProps, getInputProps }) => (
+              <section>
+                <div {...getRootProps()}>
+                  <input {...getInputProps()} />
+                  <p>Drag'n'drop files here to upload</p>
+                  </div>
+                  </section>
+            )}
+            </Dropzone>
+            <div className="itemGrid">{itemsRenderer}</div>
+    </section>;
 
   return ( <div>{content}</div> );
 };

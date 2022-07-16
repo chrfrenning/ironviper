@@ -203,6 +203,10 @@ storageConnectionString=$(az storage account show-connection-string -n $rgn --qu
 az keyvault secret set --vault-name $rgn --name "storage-connstr" --value "$storageConnectionString" >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 echo "storage_connstr = \"$storageConnectionString\"" >> ./configuration.toml
 
+# set cors
+echo -e "${Y}Setting CORS policy...${NC}"
+az storage cors add --account-name $rgn --account-key $storageKey --methods "GET,PUT,POST,DELETE,PATCH,HEAD,OPTIONS" --origins "*" --headers "*" -- exposed_headers "*" >> setup.log 2>&1 || echo -e "${R}Failed.${NC}" --services "blob" --allowed-headers "*" --exposed-headers "*" --max-age "604800" >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
+
 echo -e "${Y}Creating containers, tables, and queues...${NC}"
 az storage share create -n $rgn --account-name $rgn --account-key $storageKey --quota 5120 >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
 az storage container create --account-name $rgn --name "file-store" --account-key $storageKey >> setup.log 2>&1 || echo -e "${R}Failed.${NC}"
