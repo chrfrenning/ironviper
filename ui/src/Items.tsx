@@ -17,7 +17,7 @@ const Items: FC<ItemProps> = ({  }) => {
 
   function getData(): void {
     setIsLoading(true);
-    fetch('http://localhost:5211/t/?d=1&i=true').then(m => m.json()).then(res => { console.log(res); setIsLoading(false); setItems(res.items); });
+    fetch('http://ironviper-api.eu.ngrok.io/t/?d=1&i=true').then(m => m.json()).then(res => { console.log(res); setIsLoading(false); setItems(res.items); });
   }
 
   const itemsRenderer = items.map( (n:any) => {
@@ -40,7 +40,7 @@ const Items: FC<ItemProps> = ({  }) => {
                 if ( file.path != undefined ) {
                   path = file.path.substring(0, file.path.lastIndexOf("/"));
                 }
-                fetch(`http://localhost:5211/services/initialize-upload/?path=${path}&filename=${file.name}`)
+                fetch(`http://ironviper-api.eu.ngrok.io/services/initialize-upload/?path=${path}&filename=${file.name}`)
                 .then(m => m.json()).then(res => { 
                   console.log(res);
                   fetch(res.url, { method: 'PUT', body: file, mode: 'cors', headers: {

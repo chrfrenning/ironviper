@@ -18,7 +18,7 @@ const Tree: FC<TreeProps> = ({ title, subtitle }) => {
     current_path += "/" + path;
     current_path = "";
     setIsLoading(true);
-    fetch('http://localhost:5211/t/?d=0' + current_path).then(m => m.json()).then(res => { setIsLoading(false); setTree(res.tree); });
+    fetch('http://ironviper-api.eu.ngrok.io/t/?d=0' + current_path).then(m => m.json()).then(res => { setIsLoading(false); setTree(res.tree); });
   }
 
   const onclick = (e: any) => {
