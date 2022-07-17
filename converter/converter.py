@@ -329,7 +329,8 @@ def post_pubsub_event(file_record, url_list):
     global configuration
     pubsub_conn = configuration['pubsub_conn']
 
-    service = WebPubSubServiceClient.from_connection_string(connection_string=pubsub_conn, hub='notifications')
+    HUBNAME = "notifications"
+    service = WebPubSubServiceClient.from_connection_string(connection_string=pubsub_conn, hub=HUBNAME)
     service.send_to_all( message )
 
     pass
