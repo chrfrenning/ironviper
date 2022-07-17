@@ -4,5 +4,7 @@ azure-storage-blob
 azure-keyvault-secrets
 azure.identity
 azure-cosmosdb-table
+azure-eventgrid
+azure-messaging-webpubsubservice
 shortuuid
 toml

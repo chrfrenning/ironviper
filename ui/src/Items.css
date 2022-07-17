@@ -1,7 +1,14 @@
 .itemGrid {
     display: flex;
     flex-wrap: wrap;
+    background-color: blue;
 }
+.itemGrid:-moz-drag-over {
+    background-color: red;
+    border-color: red;
+    border-style: dashed;
+    border-width: 5px;
+  }
 
 .item {
     margin: 3px;
@@ -13,6 +20,11 @@
     height: 200px;
     background-color: lightgray;
     vertical-align: middle;
+    cursor: pointer;
+}
+.thumbnail img {
+    max-width: 100%;
+    max-height: 100%;
 }
 .item .info {
     background-color: aquamarine;

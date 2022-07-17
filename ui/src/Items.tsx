@@ -32,11 +32,15 @@ const Items: FC<ItemProps> = ({  }) => {
   });
 
   const content = isLoading ? <div className="itemGrid">Loading...</div> : <section>
-    <Dropzone onDrop={ acceptedFiles => {
+    <Dropzone noClick onDrop={ acceptedFiles => {
               acceptedFiles.map( (file:any) => {
                 console.log(file);
                 console.log("Uploading " + file.name);
-                fetch('http://localhost:5211/services/initialize-upload/?path=/&filename='+file.name)
+                let path = "/";
+                if ( file.path != undefined ) {
+                  path = file.path.substring(0, file.path.lastIndexOf("/"));
+                }
+                fetch(`http://localhost:5211/services/initialize-upload/?path=${path}&filename=${file.name}`)
                 .then(m => m.json()).then(res => { 
                   console.log(res);
                   fetch(res.url, { method: 'PUT', body: file, mode: 'cors', headers: {
@@ -51,14 +55,16 @@ const Items: FC<ItemProps> = ({  }) => {
           }}>
             {({ getRootProps, getInputProps }) => (
               <section>
-                <div {...getRootProps()}>
+                <div {...getRootProps({
+                      //onClick: event => event.stopPropagation(),
+                    })}>
                   <input {...getInputProps()} />
-                  <p>Drag'n'drop files here to upload</p>
+                    <div className="itemGrid">{itemsRenderer}</div>
                   </div>
                   </section>
             )}
             </Dropzone>
-            <div className="itemGrid">{itemsRenderer}</div>
+            
     </section>;
 
   return ( <div>{content}</div> );

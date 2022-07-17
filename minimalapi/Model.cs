@@ -73,7 +73,7 @@ class Folder {
     }
     public string[] Tags {
         get {
-            var tags = new List<string> { "tag1", "mediumtag", "tag3", "very very long tag", "tag5" };
+            var tags = new List<string> { "tag1", "mediumtag", "tag3", "very very long tag", "tag5", "Folder Object", "REST API" };
             tags.Sort();
             return tags.ToArray();
             //return entity?.GetString("tags").Split(',') ?? new string[0];
@@ -380,7 +380,7 @@ class File {
     }}
     public string[] Tags {
         get {
-            var tags = new List<string> { "tag1", "mediumtag", "tag3", "very very long tag", "tag5" };
+            var tags = new List<string> { "tag1", "mediumtag", "tag3", "very very long tag", "tag5", "File object", "REST API" };
             tags.Sort();
             return tags.ToArray();
             //return entity?.GetString("tags").Split(',') ?? new string[0];

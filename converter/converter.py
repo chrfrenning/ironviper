@@ -21,11 +21,14 @@ from azure.storage.blob import BlobClient
 from azure.storage.blob import ContentSettings
 from azure.cosmosdb.table.tableservice import TableService # replace with azure-data-tables? https://docs.microsoft.com/en-us/python/api/overview/azure/data-tables-readme?view=azure-python
 from azure.cosmosdb.table.models import Entity
+from azure.core.credentials import AzureKeyCredential
+from azure.eventgrid import EventGridPublisherClient, EventGridEvent
+from azure.messaging.webpubsubservice import WebPubSubServiceClient
 import foldermodel
 
 # Import common code libraries for ironviper, apologies for the path manipulation here
 # sys.path.append(os.path.abspath(os.path.dirname(os.path.abspath(__file__))+'/../libs/python'))
-from eventgrid import post_event
+# from eventgrid import post_event
 
 
 
@@ -268,9 +271,73 @@ def download_blob(url, extension, account_key):
 # Event handling
 #
 
-def post_new_file_event(file_record):
+def post_eventgrid_event(file_record):
     try:
+        global configuration
+        key = configuration['eventgrid_key']
+        url = configuration['eventgrid_endpoint']
+
+        print( "Posting eventgrid event")
+
+        event = EventGridEvent(
+            data=file_record,
+            subject=file_record['path'] + "/" + file_record['name'] + "." + file_record['ext'],
+            event_type="IronViper.Converter.NewFileComplete",
+            data_version="1.0"
+        )
+
+        credential = AzureKeyCredential(key)
+        client = EventGridPublisherClient(url, credential)
+        client.send(event)
+
+    except Exception as ex:
         pass
+
+def select_thumbnail(url_list):
+    # TODO : Implement and select 200px version for now _200.
+    return url_list[0]
+
+def select_preview(url_list):
+    # TODO : Implement and select 1600px version for now _1600.
+    return url_list[0]
+
+def post_pubsub_event(file_record, url_list):
+    
+
+    # make message compatible with File record from the REST API
+    utcnow = datetime.datetime.utcnow().isoformat()
+
+    message = {
+        'id' : file_record['RowKey'],
+        'name' : file_record['name'],
+        'path' : file_record['path'],
+        'extension' : file_record['ext'],
+        'title' : "Metadata.Title",
+        'description' : "Metadata.Description",
+        'tags' : ["mediumtag", "tag1", "tag3", "tag5", "very very long tag", "New File Pubsub Event", "Converter", "Python" ],
+        'guid' : file_record['uid'],
+        'createdTime' : utcnow, # TODO: Must fix
+        'modifiedTime' : utcnow, # TODO: Must fix
+        'ingestedTime' : utcnow, # TODO: Must fix
+        'md5' : file_record['md5'],
+        'sha256' : file_record['sha256'],
+        'thumbnailUrl' : select_thumbnail(url_list),
+        'previewUrl' : select_preview(url_list)
+    }
+
+    # post message to all listeners
+    global configuration
+    pubsub_conn = configuration['pubsub_conn']
+
+    service = WebPubSubServiceClient.from_connection_string(connection_string=pubsub_conn, hub='notifications')
+    service.send_to_all( message )
+
+    pass
+
+def post_new_file_event(file_record, url_list):
+    try:
+        post_eventgrid_event(file_record)
+        post_pubsub_event(file_record, url_list)
     except Exception as ex:
         print("Cannot post new file event " + ex)
 
@@ -317,7 +384,6 @@ def create_file_record(url, unique_id, partition_key, short_id, name, extension,
 
     table_service = TableService(account_name=instance_name, account_key=account_key)
     table_service.merge_entity('files', file_record)
-    
 
     print( "file_record inserted in {} sec".format(time.time()-start))
 
@@ -388,7 +454,23 @@ def create_file_record(url, unique_id, partition_key, short_id, name, extension,
     table_service.insert_or_replace_entity('leaves', leaf_record)
 
     # Ready to notify everyone there's a new file in town
-    post_new_file_event(file_record)
+    event_record = {
+        'PartitionKey': partition_key,      # using tree structure for partition key a good idea? #possiblybadidea #possiblygoodidea
+        'RowKey': short_id,                 # using unique file name for key a good idea? #badidea #mustbeuniqueinpartition
+        'state': 'done',
+        'folder_id': folder.id,
+        'pvs' : json.dumps(url_list),       # json list of preview urls
+        'md5' : md5,                        # md5 checksum of total file binary data at ingestion time
+        'sha256' : sha256,                  # sha256 checksum of total file binary data at ingestion time
+        'exif' : exifString,                # exif dumped as json by imagemagick
+        'xmp' : xmpString,
+        'uid': unique_id,                   # globally uniqueId
+        'url': url,                         # master blob url
+        'name': name,                       # filename
+        'ext' : extension,                  # file extension
+        'path' : relative_path,             # path / folder file lives in
+    }
+    post_new_file_event(event_record, url_list)
 
     # TODO: Post message to pubsub as well for realtime updates of clients
 
@@ -836,6 +918,7 @@ def load_configuration():
 
         # Load config to know where to talk
         configuration_file_name = os.path.dirname(os.path.abspath(__file__)) + "/../configuration.toml"
+        global configuration
         configuration = toml.load(configuration_file_name)
 
         # Read configuration parameters
@@ -921,8 +1004,9 @@ def main():
             else:
                 max_seconds = 60*2
                 if time.time() - last_message_handled > max_seconds and not debugMode: # 5 minutes delay maximum
-                    print( "Idle for more than {} minutes, shutting down converter process".format(max_seconds/60))
-                    exit(0)
+                    if prodMode:
+                        print( "Idle for more than {} minutes, shutting down converter process".format(max_seconds/60))
+                        exit(0)
 
             # Wait a random time before checking again
             time.sleep( random.randrange(1,3) )

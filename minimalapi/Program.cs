@@ -191,7 +191,7 @@ app.MapGet("/services/initialize-upload", (string path, string? filename) => {
     // TODO: Introduce count parameter to retrieve multiple tokens at once.
     Folder? folder = Folder.FindFolderByPath(tree, path);
     if ( folder == null )
-        return Results.NotFound();
+        folder = Folder.CreateFolder(tree, path, app.Configuration["StorageConnectionString"]);
 
     string sasToken;
     if ( filename != null ) {
