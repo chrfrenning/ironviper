@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Net.Mime;
 using System.Text;
+using Azure.Messaging.WebPubSub;
 using Azure.Storage;
 using Azure.Storage.Blobs;
 using Azure.Storage.Sas;
@@ -25,6 +26,15 @@ if ( file != null )
 //TestModel();
 PrintTree( tree );
 
+string GetWebPubSubClientUrl() {
+    const string HUBNAME = "notifications";
+
+    var connectionString = app.Configuration["PubSubConnectionString"];
+    var serviceClient = new WebPubSubServiceClient(connectionString, HUBNAME);
+    var uri = serviceClient.GetClientAccessUri(DateTime.UtcNow.AddDays(30));
+    return uri.ToString();
+}
+
 app.MapGet("/", () => {
     return Results.Ok( new { 
         application="IronViper/1.0", 
@@ -36,6 +46,7 @@ app.MapGet("/", () => {
         app_license="MIT",
         app_source="https://github.com/chrfrenning/ironviper/", 
         app_copyright=$"IronViper is Copyright (C) Christopher Frenning 2020-{DateTime.UtcNow.Year}",
+        notifications=GetWebPubSubClientUrl()
         });
 });
 
