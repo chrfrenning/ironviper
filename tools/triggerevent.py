@@ -1,17 +1,38 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python3
 import os
 import sys
 import toml
 import argparse
-sys.path.append(os.path.abspath(os.path.dirname(os.path.abspath(__file__))+'/../libs/python'))
-from eventgrid import post_event
+import json
+import uuid
+import requests
+from datetime import datetime
+
+def post_event(endpoint, accesskey, typestr, subject, data={}):
+    id = str(uuid.uuid4())
+    timestamp = datetime.utcnow()
+
+    events=[
+            {
+                'id' : id,
+                'subject' : subject,
+                'data': data,
+                'eventType': typestr,
+                'eventTime': timestamp.isoformat(),
+                'dataVersion': 1
+            }
+        ]
+    
+    headers = { 'aeg-sas-key' : accesskey, 'Content-Type' : 'application/json' }
+    r = requests.post(endpoint, headers=headers, data=json.dumps(events))
+    
+    if not 200 >= r.status_code < 300:
+        raise Exception(r.content)
 
 def load_configuration():
     configuration_file_name = os.path.dirname(os.path.abspath(__file__)) + "/../configuration.toml"
     configuration = toml.load(configuration_file_name)
 
-    instance_name = configuration["instance_name"]
-    storage_key = configuration["storage_key"]
     eventgrid_endpoint = configuration["eventgrid_endpoint"]
     eventgrid_key = configuration["eventgrid_key"]
 
