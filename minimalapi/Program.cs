@@ -16,7 +16,11 @@ builder.Services.AddCors(options => {
     });
 });
 var app = builder.Build();
-app.UseCors();
+app.UseCors( options => {
+    options.AllowAnyOrigin();
+    options.AllowAnyHeader();
+    options.AllowAnyMethod();
+});
 
 var tree = Folder.LoadModelFromTable(app.Configuration["StorageConnectionString"]);
 var file = File.LookupFileById("KK3-zkhZvGn", app.Configuration["StorageConnectionString"]);
