@@ -1,0 +1,11 @@
+authtoken: 1fP3H3y9p5A6wZTJlNcRSquRGpy_29Rqb6iRRZgp1YscNVsyh
+region: eu
+tunnels:
+  minimalapi:
+    addr: 5211
+    proto: http
+    subdomain: ironviper-api
+  ui:
+    addr: 3000
+    proto: http
+    subdomain: ironviper-ui

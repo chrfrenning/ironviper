@@ -1,38 +1,23 @@
 import React, { FC } from 'react';
+import TreeView from '@mui/lab/TreeView';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import TreeItem from '@mui/lab/TreeItem';
+
 
 interface TreeProps {
-  title: string;
-  subtitle: string;
+  items: any;
+  cb : (item:any) => void;
 }
 
-const Tree: FC<TreeProps> = ({ title, subtitle }) => {
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [tree, setTree] = React.useState([]);
-  var current_path = "/";
-
-  React.useEffect(() => {
-    getData(current_path);
-  }, []);
-
-  function getData(path: string): void {
-    current_path += "/" + path;
-    current_path = "";
-    setIsLoading(true);
-    fetch('http://ironviper-api.eu.ngrok.io/t/?d=0' + current_path).then(m => m.json()).then(res => { setIsLoading(false); setTree(res.tree); });
-  }
-
-  const onclick = (e: any) => {
-    getData("/aja");
-  }
-
+const Tree: FC<TreeProps> = ({ items, cb }) => {
   function renderTree(n : any) {
-    return <li key={n.id} title={n.title}>
-      {n.name}
+    return <TreeItem key={n.id} nodeId={n.id} label={n.name} onClick={() => {cb(n);}}>
       { n.children && n.children.length > 0 && <ul>{n.children.map(renderTree)}</ul> }
-    </li>
+    </TreeItem>
   }
 
-  const treeRenderer = tree.map( (n:any) => {
+  const treeRenderer = items.map( (n:any) => {
     return renderTree(n);
     // return <li key={n.id} 
     //     onClick={() => getData(n.name)}>
@@ -40,7 +25,16 @@ const Tree: FC<TreeProps> = ({ title, subtitle }) => {
     //   </li>;
   });
 
-  const content = isLoading ? <div>Loading...</div> : <ul>{treeRenderer}</ul>;
+  const content = items.length == 0 ? <div>Loading...</div> : 
+    <TreeView 
+      aria-label="rich object"
+      defaultCollapseIcon={<ExpandMoreIcon />}
+      defaultExpanded={['root']}
+      defaultExpandIcon={<ChevronRightIcon />}
+      sx={{ height: 400, flexGrow: 1, maxWidth: 400, overflowY: 'auto'}}
+    >
+      {treeRenderer}
+    </TreeView>;
 
   return ( <div>{content}</div> );
 };

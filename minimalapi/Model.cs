@@ -407,7 +407,7 @@ class File {
     public string ThumbnailUrl { get {
         string[] pvs = JsonSerializer.Deserialize<string[]>(entity?.GetString("pvs") ?? "[]");
         var query = from pv in pvs
-                    where pv.Contains("_200.")
+                    where pv.Contains("_w400.")
                     select pv;
         return query.FirstOrDefault(String.Empty);
     }}
