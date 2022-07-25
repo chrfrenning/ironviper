@@ -31,20 +31,46 @@ export default function App() {
     getFullDepthTree();
   }, []);
 
+  function addParentNodesToFolderTree(root : any) {
+    if ( root.parent === undefined ) {
+      root.parent = null;
+    }
+    if (root.children && root.children.length > 0) {
+      root.children.map( (child : any) => {
+        child.parent = root;
+        addParentNodesToFolderTree(child);
+      } );
+    }
+  }
+
   function getFullDepthTree() {
     fetch(`http://ironviper-api.eu.ngrok.io/t/?d=0`)
     .then(m => m.json())
     .then(res => { 
-      setFolders(res.tree); 
+      addParentNodesToFolderTree(res.tree);
+      setFolders(res.tree);
+      console.log(res.tree);
     }).catch(err => { console.log(err); });
   }
 
-  // function newFileItemHandler(item : any) : void {
-  //   setItems( p => { return [ item, ...p ]; } );
-  // }
+  function getFolderPath(folder : any) : string {
+    let path = "";
+    if (folder.parent) {
+      path = getFolderPath(folder.parent);
+    } else {
+      path = "/";
+    }
+    return path + folder.name + "/";
+  }
 
-  function onUserActionSelectFolder(path : string) : void {
-    setCurrentFolder(path);
+  function findFolderInTree(folder : any) {
+    return folder;
+  }
+
+  function onUserActionSelectFolder(folder : any) : void {
+    folder = findFolderInTree(folder);
+    console.log(folder);
+    setCurrentFolder( getFolderPath(folder) );
     setItems([]);
     getFileItemsInCurrentFolder();
   }
@@ -54,6 +80,10 @@ export default function App() {
     console.log(item);
   }
 
+  // function newFileItemHandler(item : any) : void {
+  //   setItems( p => { return [ item, ...p ]; } );
+  // }
+
   return (
     <div className="App">
       <MainMenuBar />
@@ -61,7 +91,7 @@ export default function App() {
       <ServerStatus title="Server Status"  />
       <Grid container spacing={2}>
         <Grid item xs={3}>
-          <Tree items={folders} cb={(n) => {setCurrentFolder(n.name)}} />
+          <Tree items={folders} cb={(n) => {onUserActionSelectFolder(n);}} />
         </Grid>
         <Grid item xs={9}>
           <Items items={items} />
