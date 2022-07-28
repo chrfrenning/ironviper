@@ -12,7 +12,7 @@ export default function App() {
   const [currentFolder, setCurrentFolder] = React.useState("/");
   const [viewMode, setViewMode] = React.useState("grid");
   const [items, setItems] = React.useState([]);
-  const [folders, setFolders] = React.useState([]);
+  const [folders, setFolders] = React.useState<any[]>([]);
   let i = 0;
 
   React.useEffect(() => {
@@ -20,7 +20,7 @@ export default function App() {
   }, []);
 
   function getFileItemsInCurrentFolder() {
-    fetch(`http://ironviper-api.eu.ngrok.io/t${currentFolder}?d=1&i=true`)
+    fetch(`https://ironviper-api.eu.ngrok.io/t${currentFolder}?d=1&i=true`)
     .then(m => m.json())
     .then(res => { 
       setItems(res.items); 
@@ -31,20 +31,51 @@ export default function App() {
     getFullDepthTree();
   }, []);
 
+  function addParentNodesToFolderTree(root : any) {
+    if ( root.parent === undefined ) {
+      root.parent = null;
+    }
+    if (root.children && root.children.length > 0) {
+      root.children.map( (child : any) => {
+        child.parent = root;
+        addParentNodesToFolderTree(child);
+      } );
+    }
+  }
+
   function getFullDepthTree() {
-    fetch(`http://ironviper-api.eu.ngrok.io/t/?d=0`)
+    fetch(`https://ironviper-api.eu.ngrok.io/t/?d=0`)
     .then(m => m.json())
     .then(res => { 
-      setFolders(res.tree); 
+      var r = res.info;
+      r.children = [...res.tree];
+      addParentNodesToFolderTree(r);
+
+      var f : any[] = [];
+      f.push(r);
+      setFolders(f);
+      console.log(f);
     }).catch(err => { console.log(err); });
   }
 
-  // function newFileItemHandler(item : any) : void {
-  //   setItems( p => { return [ item, ...p ]; } );
-  // }
+  function getFolderPath(folder : any) : string {
+    let path = "";
+    if (folder.parent) {
+      path = getFolderPath(folder.parent);
+    } else {
+      path = "/";
+    }
+    return path + folder.name + "/";
+  }
 
-  function onUserActionSelectFolder(path : string) : void {
-    setCurrentFolder(path);
+  function findFolderInTree(folder : any) {
+    return folder;
+  }
+
+  function onUserActionSelectFolder(folder : any) : void {
+    folder = findFolderInTree(folder);
+    console.log(folder);
+    setCurrentFolder( getFolderPath(folder) );
     setItems([]);
     getFileItemsInCurrentFolder();
   }
@@ -53,6 +84,10 @@ export default function App() {
     // TODO: Switch view into preview mode
     console.log(item);
   }
+
+  // function newFileItemHandler(item : any) : void {
+  //   setItems( p => { return [ item, ...p ]; } );
+  // }
 
   return (
     <div className="App">

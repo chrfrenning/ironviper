@@ -11,7 +11,7 @@ const ServerStatus: FC<Properties> = ({ title }) => {
   React.useEffect(() => {
     const getData = () => {
       setIsLoading(true);
-      fetch('http://ironviper-api.eu.ngrok.io/').then(m => m.json()).then(res => { 
+      fetch('https://ironviper-api.eu.ngrok.io/').then(m => m.json()).then(res => { 
         setIsLoading(false);
   
         let notificationsSocket = new WebSocket(res.notifications);

@@ -25,7 +25,7 @@ const Items: FC<ItemProps> = ({ items }) => {
                   path = "/";
                 }
                 
-                fetch(`http://ironviper-api.eu.ngrok.io/services/initialize-upload/?path=${path}&filename=${file.name}`)
+                fetch(`https://ironviper-api.eu.ngrok.io/services/initialize-upload/?path=${path}&filename=${file.name}`)
                 .then(m => m.json()).then(res => { 
                   //console.log(res);
                   fetch(res.url, { method: 'PUT', body: file, mode: 'cors', headers: {
