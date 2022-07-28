@@ -96,7 +96,7 @@ export default function App() {
       <ServerStatus title="Server Status"  />
       <Grid container spacing={2}>
         <Grid item xs={3}>
-          <Tree items={folders} cb={(n) => {setCurrentFolder(n.name)}} />
+          <Tree items={folders} cb={(n) => {onUserActionSelectFolder(n);}} />
         </Grid>
         <Grid item xs={9}>
           <Items items={items} />
