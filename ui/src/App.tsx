@@ -54,18 +54,15 @@ export default function App() {
       var f : any[] = [];
       f.push(r);
       setFolders(f);
-      console.log(f);
     }).catch(err => { console.log(err); });
   }
 
   function getFolderPath(folder : any) : string {
-    let path = "";
-    if (folder.parent) {
-      path = getFolderPath(folder.parent);
+    if (folder.parent != null) {
+      return getFolderPath(folder.parent) + folder.name + "/";
     } else {
-      path = "/";
+      return "/";
     }
-    return path + folder.name + "/";
   }
 
   function findFolderInTree(folder : any) {
@@ -74,7 +71,6 @@ export default function App() {
 
   function onUserActionSelectFolder(folder : any) : void {
     folder = findFolderInTree(folder);
-    console.log(folder);
     setCurrentFolder( getFolderPath(folder) );
     setItems([]);
     getFileItemsInCurrentFolder();
@@ -82,7 +78,7 @@ export default function App() {
 
   function onUserActionPreviewItem(item : any) : void {
     // TODO: Switch view into preview mode
-    console.log(item);
+    //console.log(item);
   }
 
   // function newFileItemHandler(item : any) : void {
